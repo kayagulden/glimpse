@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 
 	cdpNetwork "github.com/chromedp/cdproto/network"
@@ -26,7 +28,7 @@ type NetworkRequest struct {
 	Error        string            `json:"error"`
 	ReqHeaders   map[string]string `json:"reqHeaders"`
 	RespHeaders  map[string]string `json:"respHeaders"`
-	ResponseBody string            `json:"responseBody"`
+	BodySize     int64             `json:"bodySize"` // actual body byte length
 }
 
 // NetworkService captures network traffic via CDP Network domain events.
@@ -34,11 +36,14 @@ type NetworkService struct {
 	console    *ConsoleService
 	appCtx     context.Context
 
-	mu         sync.Mutex
+	mu          sync.Mutex
 	enabledTabs map[string]bool
-	// In-flight requests indexed by requestID, per tab.
-	inflight   map[string]map[string]*NetworkRequest
+	inflight    map[string]map[string]*NetworkRequest
+	// Body cache: requestID -> full response body bytes.
+	bodyCache   map[string][]byte
 }
+
+const maxBodyPreview = 500 * 1024 // 500 KB preview limit
 
 // NewNetworkService creates a NetworkService.
 func NewNetworkService(cs *ConsoleService) *NetworkService {
@@ -46,6 +51,7 @@ func NewNetworkService(cs *ConsoleService) *NetworkService {
 		console:     cs,
 		enabledTabs: make(map[string]bool),
 		inflight:    make(map[string]map[string]*NetworkRequest),
+		bodyCache:   make(map[string][]byte),
 	}
 }
 
@@ -145,14 +151,13 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 			s.mu.Unlock()
 
 			if req != nil && s.appCtx != nil {
-				// Eagerly fetch response body while it's still cached.
+				// Eagerly fetch and cache body while it's still in CDP memory.
 				body, err := cdpNetwork.GetResponseBody(cdpNetwork.RequestID(reqID)).Do(ctx)
 				if err == nil && len(body) > 0 {
-					b := string(body)
-					if len(b) > 100000 {
-						b = b[:100000] + "\n…(truncated)"
-					}
-					req.ResponseBody = b
+					s.mu.Lock()
+					s.bodyCache[reqID] = body
+					s.mu.Unlock()
+					req.BodySize = int64(len(body))
 				}
 				wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, req)
 			}
@@ -187,4 +192,52 @@ func flattenHeaders(h cdpNetwork.Headers) map[string]string {
 		result[k] = fmt.Sprintf("%v", v)
 	}
 	return result
+}
+
+// GetCachedResponseBody returns the cached response body preview (up to 500KB).
+func (s *NetworkService) GetCachedResponseBody(requestID string) (string, error) {
+	s.mu.Lock()
+	data, ok := s.bodyCache[requestID]
+	s.mu.Unlock()
+
+	if !ok {
+		return "", fmt.Errorf("body not cached for %s", requestID)
+	}
+
+	if len(data) > maxBodyPreview {
+		return string(data[:maxBodyPreview]) + fmt.Sprintf("\n\n…(truncated — showing %d of %d bytes)", maxBodyPreview, len(data)), nil
+	}
+	return string(data), nil
+}
+
+// SaveResponseBody saves the full response body to a temp file and returns the path.
+func (s *NetworkService) SaveResponseBody(requestID string, suggestedName string) (string, error) {
+	s.mu.Lock()
+	data, ok := s.bodyCache[requestID]
+	s.mu.Unlock()
+
+	if !ok {
+		return "", fmt.Errorf("body not cached for %s", requestID)
+	}
+
+	if suggestedName == "" {
+		suggestedName = "response.txt"
+	}
+
+	tmpDir := os.TempDir()
+	path := filepath.Join(tmpDir, suggestedName)
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", fmt.Errorf("write file: %w", err)
+	}
+
+	log.Printf("[Network] Saved response body to %s (%d bytes)", path, len(data))
+	return path, nil
+}
+
+// ClearBodyCache clears all cached response bodies.
+func (s *NetworkService) ClearBodyCache() {
+	s.mu.Lock()
+	s.bodyCache = make(map[string][]byte)
+	s.mu.Unlock()
 }

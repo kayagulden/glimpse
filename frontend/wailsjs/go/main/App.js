@@ -6,6 +6,10 @@ export function ClearHighlight(arg1) {
   return window['go']['main']['App']['ClearHighlight'](arg1);
 }
 
+export function ClearNetworkCache() {
+  return window['go']['main']['App']['ClearNetworkCache']();
+}
+
 export function ConnectToChrome(arg1) {
   return window['go']['main']['App']['ConnectToChrome'](arg1);
 }
@@ -16,6 +20,10 @@ export function DisconnectFromChrome() {
 
 export function EnableNetwork(arg1) {
   return window['go']['main']['App']['EnableNetwork'](arg1);
+}
+
+export function GetCachedResponseBody(arg1) {
+  return window['go']['main']['App']['GetCachedResponseBody'](arg1);
 }
 
 export function GetChildNodes(arg1, arg2) {
@@ -56,6 +64,10 @@ export function IsConnected() {
 
 export function RunJS(arg1) {
   return window['go']['main']['App']['RunJS'](arg1);
+}
+
+export function SaveResponseBody(arg1, arg2) {
+  return window['go']['main']['App']['SaveResponseBody'](arg1, arg2);
 }
 
 export function SearchDOM(arg1, arg2) {

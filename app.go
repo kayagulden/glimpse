@@ -120,3 +120,18 @@ func (a *App) GetSessionStorage(targetID string) ([]cdp.StorageEntry, error) {
 func (a *App) EnableNetwork(targetID string) error {
 	return a.network.EnableNetwork(targetID)
 }
+
+// GetCachedResponseBody returns the cached body preview (up to 500KB).
+func (a *App) GetCachedResponseBody(requestID string) (string, error) {
+	return a.network.GetCachedResponseBody(requestID)
+}
+
+// SaveResponseBody saves the full response body to a file and returns the path.
+func (a *App) SaveResponseBody(requestID string, suggestedName string) (string, error) {
+	return a.network.SaveResponseBody(requestID, suggestedName)
+}
+
+// ClearNetworkCache clears all cached response bodies.
+func (a *App) ClearNetworkCache() {
+	a.network.ClearBodyCache()
+}

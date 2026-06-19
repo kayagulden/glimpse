@@ -4,11 +4,15 @@ import {cdp} from '../models';
 
 export function ClearHighlight(arg1:string):Promise<void>;
 
+export function ClearNetworkCache():Promise<void>;
+
 export function ConnectToChrome(arg1:string):Promise<void>;
 
 export function DisconnectFromChrome():Promise<void>;
 
 export function EnableNetwork(arg1:string):Promise<void>;
+
+export function GetCachedResponseBody(arg1:string):Promise<string>;
 
 export function GetChildNodes(arg1:string,arg2:number):Promise<Array<cdp.DOMNode>>;
 
@@ -29,5 +33,7 @@ export function HighlightNode(arg1:string,arg2:number):Promise<void>;
 export function IsConnected():Promise<boolean>;
 
 export function RunJS(arg1:string):Promise<void>;
+
+export function SaveResponseBody(arg1:string,arg2:string):Promise<string>;
 
 export function SearchDOM(arg1:string,arg2:string):Promise<Array<cdp.SearchResult>>;

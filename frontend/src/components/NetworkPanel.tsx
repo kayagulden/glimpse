@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { EnableNetwork } from '../../wailsjs/go/main/App';
+import { EnableNetwork, GetCachedResponseBody, SaveResponseBody, ClearNetworkCache } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 interface NetworkRequest {
@@ -16,7 +16,7 @@ interface NetworkRequest {
   error: string;
   reqHeaders: Record<string, string> | null;
   respHeaders: Record<string, string> | null;
-  responseBody: string;
+  bodySize: number;
 }
 
 interface NetworkPanelProps {
@@ -68,6 +68,9 @@ function urlFilename(url: string): string {
 export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   const [requests, setRequests] = useState<NetworkRequest[]>([]);
   const [selected, setSelected] = useState<NetworkRequest | null>(null);
+  const [responseBody, setResponseBody] = useState('');
+  const [loadingBody, setLoadingBody] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
   const [detailTab, setDetailTab] = useState<'headers' | 'response'>('headers');
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -100,12 +103,42 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   useEffect(() => {
     setRequests([]);
     setSelected(null);
+    setResponseBody('');
+    ClearNetworkCache().catch(() => {});
   }, [selectedTab]);
 
   // Select a request to view details
   const selectRequest = useCallback((req: NetworkRequest) => {
     setSelected(req);
     setDetailTab('headers');
+    setResponseBody('');
+  }, []);
+
+  // Lazy-load body when Response tab is clicked
+  const loadBody = useCallback(async (requestId: string) => {
+    setLoadingBody(true);
+    try {
+      const body = await GetCachedResponseBody(requestId);
+      setResponseBody(body);
+    } catch {
+      setResponseBody('(Response body not available)');
+    } finally {
+      setLoadingBody(false);
+    }
+  }, []);
+
+  // Download full response body
+  const downloadBody = useCallback(async (req: NetworkRequest) => {
+    setSaving(true);
+    try {
+      const filename = urlFilename(req.url) || 'response.txt';
+      const path = await SaveResponseBody(req.requestId, filename);
+      alert(`Saved to: ${path}`);
+    } catch (e) {
+      alert(`Could not save: ${e}`);
+    } finally {
+      setSaving(false);
+    }
   }, []);
 
   const filtered = useMemo(() => {
@@ -151,7 +184,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
         <span className="text-[10px] text-white/20 font-mono">{filtered.length} requests</span>
         <div className="flex-1" />
         <button
-          onClick={() => { setRequests([]); setSelected(null); }}
+          onClick={() => { setRequests([]); setSelected(null); setResponseBody(''); ClearNetworkCache().catch(() => {}); }}
           className="px-2 py-0.5 text-[10px] text-white/30 hover:text-white/60
                      hover:bg-white/5 rounded transition-colors"
         >
@@ -218,7 +251,12 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
               {(['headers', 'response'] as const).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setDetailTab(tab)}
+                  onClick={() => {
+                    setDetailTab(tab);
+                    if (tab === 'response' && selected && !responseBody && !loadingBody) {
+                      loadBody(selected.requestId);
+                    }
+                  }}
                   className={`px-3 py-1.5 text-[11px] transition-colors capitalize
                     ${detailTab === tab
                       ? 'text-accent border-b-2 border-accent'
@@ -284,8 +322,28 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                 </div>
               ) : (
                 <div className="text-[11px] font-mono">
-                  {selected.responseBody ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all">{selected.responseBody}</pre>
+                  {/* Body toolbar */}
+                  {selected.bodySize > 0 && (
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/30">
+                      <span className="text-[10px] text-white/20">
+                        {formatSize(selected.bodySize)}
+                        {selected.bodySize > 500 * 1024 && ' (preview truncated)'}
+                      </span>
+                      <div className="flex-1" />
+                      <button
+                        onClick={() => downloadBody(selected)}
+                        disabled={saving}
+                        className="px-2 py-0.5 text-[10px] text-accent/60 hover:text-accent
+                                   hover:bg-accent/10 rounded transition-colors disabled:opacity-30"
+                      >
+                        {saving ? 'Saving…' : '↓ Download'}
+                      </button>
+                    </div>
+                  )}
+                  {loadingBody ? (
+                    <span className="text-white/20 animate-pulse">Loading response body…</span>
+                  ) : responseBody ? (
+                    <pre className="text-white/50 whitespace-pre-wrap break-all">{responseBody}</pre>
                   ) : (
                     <span className="text-white/20">No response body available</span>
                   )}
