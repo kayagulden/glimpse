@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { EnableNetwork, GetResponseBody } from '../../wailsjs/go/main/App';
+import { EnableNetwork } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 interface NetworkRequest {
@@ -16,6 +16,7 @@ interface NetworkRequest {
   error: string;
   reqHeaders: Record<string, string> | null;
   respHeaders: Record<string, string> | null;
+  responseBody: string;
 }
 
 interface NetworkPanelProps {
@@ -67,8 +68,6 @@ function urlFilename(url: string): string {
 export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   const [requests, setRequests] = useState<NetworkRequest[]>([]);
   const [selected, setSelected] = useState<NetworkRequest | null>(null);
-  const [responseBody, setResponseBody] = useState<string>('');
-  const [loadingBody, setLoadingBody] = useState(false);
   const [filter, setFilter] = useState('');
   const [detailTab, setDetailTab] = useState<'headers' | 'response'>('headers');
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -101,26 +100,13 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   useEffect(() => {
     setRequests([]);
     setSelected(null);
-    setResponseBody('');
   }, [selectedTab]);
 
-  // Fetch response body when selecting a request
-  const selectRequest = useCallback(async (req: NetworkRequest) => {
+  // Select a request to view details
+  const selectRequest = useCallback((req: NetworkRequest) => {
     setSelected(req);
     setDetailTab('headers');
-    setResponseBody('');
-    if (selectedTab !== 'all') {
-      setLoadingBody(true);
-      try {
-        const body = await GetResponseBody(selectedTab, req.requestId);
-        setResponseBody(body);
-      } catch {
-        setResponseBody('(Could not load response body)');
-      } finally {
-        setLoadingBody(false);
-      }
-    }
-  }, [selectedTab]);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!filter) return requests;
@@ -165,7 +151,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
         <span className="text-[10px] text-white/20 font-mono">{filtered.length} requests</span>
         <div className="flex-1" />
         <button
-          onClick={() => { setRequests([]); setSelected(null); setResponseBody(''); }}
+          onClick={() => { setRequests([]); setSelected(null); }}
           className="px-2 py-0.5 text-[10px] text-white/30 hover:text-white/60
                      hover:bg-white/5 rounded transition-colors"
         >
@@ -243,7 +229,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
               ))}
               <div className="flex-1" />
               <button
-                onClick={() => { setSelected(null); setResponseBody(''); }}
+                onClick={() => { setSelected(null); }}
                 className="px-2 py-1 text-white/20 hover:text-white/50 text-xs transition-colors"
               >
                 ✕
@@ -298,10 +284,8 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                 </div>
               ) : (
                 <div className="text-[11px] font-mono">
-                  {loadingBody ? (
-                    <span className="text-white/20 animate-pulse">Loading response body…</span>
-                  ) : responseBody ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all">{responseBody}</pre>
+                  {selected.responseBody ? (
+                    <pre className="text-white/50 whitespace-pre-wrap break-all">{selected.responseBody}</pre>
                   ) : (
                     <span className="text-white/20">No response body available</span>
                   )}

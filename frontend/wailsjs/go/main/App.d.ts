@@ -20,8 +20,6 @@ export function GetLocalStorage(arg1:string):Promise<Array<cdp.StorageEntry>>;
 
 export function GetNodePath(arg1:string,arg2:number):Promise<Array<number>>;
 
-export function GetResponseBody(arg1:string,arg2:string):Promise<string>;
-
 export function GetSessionStorage(arg1:string):Promise<Array<cdp.StorageEntry>>;
 
 export function GetTabs():Promise<Array<cdp.TabInfo>>;

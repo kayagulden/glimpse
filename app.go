@@ -120,8 +120,3 @@ func (a *App) GetSessionStorage(targetID string) ([]cdp.StorageEntry, error) {
 func (a *App) EnableNetwork(targetID string) error {
 	return a.network.EnableNetwork(targetID)
 }
-
-// GetResponseBody returns the response body of a captured request.
-func (a *App) GetResponseBody(targetID string, requestID string) (string, error) {
-	return a.network.GetResponseBody(targetID, requestID)
-}

@@ -13,19 +13,20 @@ import (
 
 // NetworkRequest represents a captured HTTP request/response pair.
 type NetworkRequest struct {
-	RequestID  string            `json:"requestId"`
-	URL        string            `json:"url"`
-	Method     string            `json:"method"`
-	Status     int               `json:"status"`
-	StatusText string            `json:"statusText"`
-	Type       string            `json:"type"`
-	MimeType   string            `json:"mimeType"`
-	StartTime  int64             `json:"startTime"`
-	Duration   float64           `json:"duration"` // ms
-	Size       int64             `json:"size"`
-	Error      string            `json:"error"`
-	ReqHeaders map[string]string `json:"reqHeaders"`
-	RespHeaders map[string]string `json:"respHeaders"`
+	RequestID    string            `json:"requestId"`
+	URL          string            `json:"url"`
+	Method       string            `json:"method"`
+	Status       int               `json:"status"`
+	StatusText   string            `json:"statusText"`
+	Type         string            `json:"type"`
+	MimeType     string            `json:"mimeType"`
+	StartTime    int64             `json:"startTime"`
+	Duration     float64           `json:"duration"`
+	Size         int64             `json:"size"`
+	Error        string            `json:"error"`
+	ReqHeaders   map[string]string `json:"reqHeaders"`
+	RespHeaders  map[string]string `json:"respHeaders"`
+	ResponseBody string            `json:"responseBody"`
 }
 
 // NetworkService captures network traffic via CDP Network domain events.
@@ -69,7 +70,12 @@ func (s *NetworkService) EnableNetwork(targetID string) error {
 	}
 
 	// Enable the Network domain.
-	if err := chromedp.Run(ctx, cdpNetwork.Enable()); err != nil {
+	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return cdpNetwork.Enable().
+			WithMaxTotalBufferSize(100 * 1024 * 1024).   // 100 MB total
+			WithMaxResourceBufferSize(10 * 1024 * 1024). // 10 MB per resource
+			Do(ctx)
+	})); err != nil {
 		return fmt.Errorf("Network.enable: %w", err)
 	}
 
@@ -83,31 +89,6 @@ func (s *NetworkService) EnableNetwork(targetID string) error {
 
 	log.Printf("[Network] Enabled for tab %s", targetID)
 	return nil
-}
-
-// GetResponseBody returns the response body for a given request.
-func (s *NetworkService) GetResponseBody(targetID string, requestID string) (string, error) {
-	ctx, err := s.console.GetTabContext(targetID)
-	if err != nil {
-		return "", err
-	}
-
-	var body string
-	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-		b, err := cdpNetwork.GetResponseBody(cdpNetwork.RequestID(requestID)).Do(ctx)
-		if err != nil {
-			return err
-		}
-		body = string(b)
-		if len(body) > 100000 {
-			body = body[:100000] + "\n\n…(truncated)"
-		}
-		return nil
-	})); err != nil {
-		return "", fmt.Errorf("getResponseBody: %w", err)
-	}
-
-	return body, nil
 }
 
 // listenEvents listens for CDP Network events and emits them to the frontend.
@@ -149,9 +130,11 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 		case *cdpNetwork.EventLoadingFinished:
 			s.mu.Lock()
 			var req *NetworkRequest
+			var reqID string
 			if m, ok := s.inflight[targetID]; ok {
 				if r, found := m[string(e.RequestID)]; found {
 					req = r
+					reqID = string(e.RequestID)
 					if e.EncodedDataLength > 0 {
 						req.Size = int64(e.EncodedDataLength)
 					}
@@ -162,6 +145,15 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 			s.mu.Unlock()
 
 			if req != nil && s.appCtx != nil {
+				// Eagerly fetch response body while it's still cached.
+				body, err := cdpNetwork.GetResponseBody(cdpNetwork.RequestID(reqID)).Do(ctx)
+				if err == nil && len(body) > 0 {
+					b := string(body)
+					if len(b) > 100000 {
+						b = b[:100000] + "\n…(truncated)"
+					}
+					req.ResponseBody = b
+				}
 				wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, req)
 			}
 

@@ -38,10 +38,6 @@ export function GetNodePath(arg1, arg2) {
   return window['go']['main']['App']['GetNodePath'](arg1, arg2);
 }
 
-export function GetResponseBody(arg1, arg2) {
-  return window['go']['main']['App']['GetResponseBody'](arg1, arg2);
-}
-
 export function GetSessionStorage(arg1) {
   return window['go']['main']['App']['GetSessionStorage'](arg1);
 }
