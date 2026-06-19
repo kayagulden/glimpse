@@ -1,5 +1,17 @@
 export namespace cdp {
 	
+	export class Config {
+	    geminiApiKey: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Config(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.geminiApiKey = source["geminiApiKey"];
+	    }
+	}
 	export class CookieEntry {
 	    name: string;
 	    value: string;

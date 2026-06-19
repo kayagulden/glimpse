@@ -41,17 +41,22 @@ type NetworkService struct {
 	inflight    map[string]map[string]*NetworkRequest
 	// Body cache: requestID -> full response body bytes.
 	bodyCache   map[string][]byte
+	// Request buffer for AI analysis: targetID -> recent completed requests.
+	requestBuffer map[string][]NetworkRequest
 }
+
+const maxRequestBuffer = 100
 
 const maxBodyPreview = 500 * 1024 // 500 KB preview limit
 
 // NewNetworkService creates a NetworkService.
 func NewNetworkService(cs *ConsoleService) *NetworkService {
 	return &NetworkService{
-		console:     cs,
-		enabledTabs: make(map[string]bool),
-		inflight:    make(map[string]map[string]*NetworkRequest),
-		bodyCache:   make(map[string][]byte),
+		console:       cs,
+		enabledTabs:   make(map[string]bool),
+		inflight:      make(map[string]map[string]*NetworkRequest),
+		bodyCache:     make(map[string][]byte),
+		requestBuffer: make(map[string][]NetworkRequest),
 	}
 }
 
@@ -166,6 +171,7 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 						r.BodySize = int64(len(body))
 					}
 					wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, r)
+					s.bufferRequest(targetID, *r)
 				}(req, reqID)
 			}
 
@@ -184,9 +190,31 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 
 			if req != nil && s.appCtx != nil {
 				wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, req)
+				s.bufferRequest(targetID, *req)
 			}
 		}
 	})
+}
+
+// bufferRequest adds a request to the AI analysis buffer (FIFO, capped).
+func (s *NetworkService) bufferRequest(targetID string, req NetworkRequest) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	buf := s.requestBuffer[targetID]
+	if len(buf) >= maxRequestBuffer {
+		buf = buf[1:]
+	}
+	s.requestBuffer[targetID] = append(buf, req)
+}
+
+// GetRequestBuffer returns a copy of buffered network requests for a tab.
+func (s *NetworkService) GetRequestBuffer(targetID string) []NetworkRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	buf := s.requestBuffer[targetID]
+	out := make([]NetworkRequest, len(buf))
+	copy(out, buf)
+	return out
 }
 
 // flattenHeaders converts CDP Headers (map[string]interface{}) to map[string]string.

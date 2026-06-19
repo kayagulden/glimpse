@@ -9,6 +9,7 @@ import { NetworkPanel } from './components/NetworkPanel';
 import { PerformancePanel } from './components/PerformancePanel';
 import { ResponsivePanel } from './components/ResponsivePanel';
 import { CapturePanel } from './components/CapturePanel';
+import { AIPanel } from './components/AIPanel';
 
 function App() {
   const [connected, setConnected] = useState(false);
@@ -49,6 +50,8 @@ function App() {
           <ResponsivePanel connected={connected} selectedTab={selectedTab} />
         ) : activePanel === 'capture' ? (
           <CapturePanel connected={connected} selectedTab={selectedTab} />
+        ) : activePanel === 'ai' ? (
+          <AIPanel connected={connected} selectedTab={selectedTab} />
         ) : activePanel === 'application' ? (
           <ApplicationPanel connected={connected} selectedTab={selectedTab} />
         ) : null}

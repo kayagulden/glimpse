@@ -15,19 +15,23 @@ type App struct {
 	performance *cdp.PerformanceService
 	emulation   *cdp.EmulationService
 	capture     *cdp.CaptureService
+	ai          *cdp.AIService
 }
 
 // NewApp creates a new App with its services.
 func NewApp() *App {
 	cs := cdp.NewConsoleService()
+	ns := cdp.NewNetworkService(cs)
+	ps := cdp.NewPerformanceService(cs)
 	return &App{
 		console:     cs,
 		elements:    cdp.NewElementsService(cs),
 		storage:     cdp.NewStorageService(cs),
-		network:     cdp.NewNetworkService(cs),
-		performance: cdp.NewPerformanceService(cs),
+		network:     ns,
+		performance: ps,
 		emulation:   cdp.NewEmulationService(cs),
 		capture:     cdp.NewCaptureService(cs),
+		ai:          cdp.NewAIService(cs, ns, ps),
 	}
 }
 
@@ -40,6 +44,7 @@ func (a *App) startup(ctx context.Context) {
 	a.performance.SetAppContext(ctx)
 	a.emulation.SetAppContext(ctx)
 	a.capture.SetAppContext(ctx)
+	a.ai.SetAppContext(ctx)
 }
 
 // shutdown is called by Wails when the app is closing.
@@ -179,4 +184,32 @@ func (a *App) CaptureScreenshot(targetID string, format string, quality int, ful
 // PrintToPDF generates a PDF of the given tab.
 func (a *App) PrintToPDF(targetID string, landscape bool, printBackground bool, scale float64) (string, error) {
 	return a.capture.PrintToPDF(targetID, landscape, printBackground, scale)
+}
+
+// --- Config bindings ---
+
+// GetConfig returns the current config.
+func (a *App) GetConfig() (*cdp.Config, error) {
+	return cdp.LoadConfig()
+}
+
+// SaveGeminiKey saves the Gemini API key to config.
+func (a *App) SaveGeminiKey(apiKey string) error {
+	cfg, _ := cdp.LoadConfig()
+	cfg.GeminiAPIKey = apiKey
+	return cdp.SaveConfig(cfg)
+}
+
+// --- AI bindings ---
+
+// DebugAnalysis runs AI-powered debug analysis on the given tab.
+func (a *App) DebugAnalysis(targetID string) (string, error) {
+	cfg, _ := cdp.LoadConfig()
+	return a.ai.DebugAnalysis(targetID, cfg.GeminiAPIKey)
+}
+
+// SiteAudit runs a comprehensive AI-powered site audit on the given tab.
+func (a *App) SiteAudit(targetID string) (string, error) {
+	cfg, _ := cdp.LoadConfig()
+	return a.ai.SiteAudit(targetID, cfg.GeminiAPIKey)
 }

@@ -41,10 +41,15 @@ type ConsoleService struct {
 	tabCancels map[string]context.CancelFunc // targetID -> cancel func
 	connected  bool
 	stopPoll   chan struct{} // signal to stop the tab poller
+	logBuffer  map[string][]ConsoleEntry     // targetID -> recent logs for AI
 }
 
+const maxLogBuffer = 200
+
 func NewConsoleService() *ConsoleService {
-	return &ConsoleService{}
+	return &ConsoleService{
+		logBuffer: make(map[string][]ConsoleEntry),
+	}
 }
 
 func (s *ConsoleService) SetAppContext(ctx context.Context) {
@@ -177,12 +182,31 @@ func (s *ConsoleService) attachToTarget(t *target.Info) {
 				TargetID:  id,
 			}
 			wailsRuntime.EventsEmit(s.appCtx, "console:log", entry)
+
+			// Buffer for AI analysis.
+			s.mu.Lock()
+			buf := s.logBuffer[id]
+			if len(buf) >= maxLogBuffer {
+				buf = buf[1:]
+			}
+			s.logBuffer[id] = append(buf, entry)
+			s.mu.Unlock()
 		}
 	})
 
 	s.tabCtxs[id] = tabCtx
 	s.tabCancels[id] = tabCancel
 	log.Printf("[cdp] attached to tab: %q (%s) [%s]", t.Title, t.URL, id)
+}
+
+// GetLogBuffer returns a copy of buffered console entries for a tab.
+func (s *ConsoleService) GetLogBuffer(targetID string) []ConsoleEntry {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	buf := s.logBuffer[targetID]
+	out := make([]ConsoleEntry, len(buf))
+	copy(out, buf)
+	return out
 }
 
 // RunJS evaluates a JavaScript expression in the first attached tab.

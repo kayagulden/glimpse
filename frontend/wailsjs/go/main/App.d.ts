@@ -12,6 +12,8 @@ export function CollectWebVitals(arg1:string):Promise<cdp.WebVitals>;
 
 export function ConnectToChrome(arg1:string):Promise<void>;
 
+export function DebugAnalysis(arg1:string):Promise<string>;
+
 export function DisconnectFromChrome():Promise<void>;
 
 export function EnableNetwork(arg1:string):Promise<void>;
@@ -21,6 +23,8 @@ export function EnablePerformance(arg1:string):Promise<void>;
 export function GetCachedResponseBody(arg1:string):Promise<string>;
 
 export function GetChildNodes(arg1:string,arg2:number):Promise<Array<cdp.DOMNode>>;
+
+export function GetConfig():Promise<cdp.Config>;
 
 export function GetCookies(arg1:string):Promise<Array<cdp.CookieEntry>>;
 
@@ -44,8 +48,12 @@ export function ResetViewport(arg1:string):Promise<void>;
 
 export function RunJS(arg1:string):Promise<void>;
 
+export function SaveGeminiKey(arg1:string):Promise<void>;
+
 export function SaveResponseBody(arg1:string,arg2:string):Promise<string>;
 
 export function SearchDOM(arg1:string,arg2:string):Promise<Array<cdp.SearchResult>>;
 
 export function SetViewport(arg1:string,arg2:number,arg3:number,arg4:number,arg5:boolean,arg6:boolean):Promise<void>;
+
+export function SiteAudit(arg1:string):Promise<string>;

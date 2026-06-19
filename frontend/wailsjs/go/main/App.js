@@ -22,6 +22,10 @@ export function ConnectToChrome(arg1) {
   return window['go']['main']['App']['ConnectToChrome'](arg1);
 }
 
+export function DebugAnalysis(arg1) {
+  return window['go']['main']['App']['DebugAnalysis'](arg1);
+}
+
 export function DisconnectFromChrome() {
   return window['go']['main']['App']['DisconnectFromChrome']();
 }
@@ -40,6 +44,10 @@ export function GetCachedResponseBody(arg1) {
 
 export function GetChildNodes(arg1, arg2) {
   return window['go']['main']['App']['GetChildNodes'](arg1, arg2);
+}
+
+export function GetConfig() {
+  return window['go']['main']['App']['GetConfig']();
 }
 
 export function GetCookies(arg1) {
@@ -86,6 +94,10 @@ export function RunJS(arg1) {
   return window['go']['main']['App']['RunJS'](arg1);
 }
 
+export function SaveGeminiKey(arg1) {
+  return window['go']['main']['App']['SaveGeminiKey'](arg1);
+}
+
 export function SaveResponseBody(arg1, arg2) {
   return window['go']['main']['App']['SaveResponseBody'](arg1, arg2);
 }
@@ -96,4 +108,8 @@ export function SearchDOM(arg1, arg2) {
 
 export function SetViewport(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['SetViewport'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function SiteAudit(arg1) {
+  return window['go']['main']['App']['SiteAudit'](arg1);
 }
