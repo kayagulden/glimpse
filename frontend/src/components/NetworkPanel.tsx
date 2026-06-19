@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { EnableNetwork, SaveResponseBody, ClearNetworkCache } from '../../wailsjs/go/main/App';
+import { EnableNetwork, GetCachedResponseBody, SaveResponseBody, ClearNetworkCache } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 interface NetworkRequest {
@@ -69,6 +69,8 @@ function urlFilename(url: string): string {
 export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   const [requests, setRequests] = useState<NetworkRequest[]>([]);
   const [selected, setSelected] = useState<NetworkRequest | null>(null);
+  const [responseBody, setResponseBody] = useState('');
+  const [loadingBody, setLoadingBody] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -101,13 +103,31 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   useEffect(() => {
     setRequests([]);
     setSelected(null);
+    setResponseBody('');
     ClearNetworkCache().catch(() => {});
   }, [selectedTab]);
+
+  // Load response body from Go cache
+  const loadBody = useCallback(async (requestId: string) => {
+    setLoadingBody(true);
+    try {
+      const body = await GetCachedResponseBody(requestId);
+      setResponseBody(body);
+    } catch {
+      setResponseBody('');
+    } finally {
+      setLoadingBody(false);
+    }
+  }, []);
 
   // Select a request to view details
   const selectRequest = useCallback((req: NetworkRequest) => {
     setSelected(req);
-  }, []);
+    setResponseBody(req.responseBody || '');
+    if (req.bodySize > 0) {
+      loadBody(req.requestId);
+    }
+  }, [loadBody]);
 
   // Download full response body
   const downloadBody = useCallback(async (req: NetworkRequest) => {
@@ -310,8 +330,10 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                   )}
                 </div>
                 <div className="text-[11px] font-mono bg-surface-0/50 rounded p-2 border border-border/20">
-                  {selected.responseBody ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{selected.responseBody}</pre>
+                  {loadingBody ? (
+                    <span className="text-white/20 animate-pulse">Loading…</span>
+                  ) : (responseBody || selected.responseBody) ? (
+                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{responseBody || selected.responseBody}</pre>
                   ) : (
                     <span className="text-white/20 text-[10px]">No body</span>
                   )}
