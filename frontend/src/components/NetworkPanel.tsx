@@ -244,10 +244,10 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
           )}
         </div>
 
-        {/* Detail panel — stacked: headers + response body */}
+        {/* Detail panel — two sub-panels: headers on top, body on bottom */}
         {selected && (
           <div className="w-1/2 flex flex-col min-w-0">
-            {/* Detail header */}
+            {/* Main detail header — GET 200 filename */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-1 border-b border-border shrink-0">
               <span className="text-[11px] text-white/40 font-mono truncate flex-1" title={selected.url}>
                 {selected.method} <span className={statusColor(selected.status, selected.error)}>{selected.status}</span> {urlFilename(selected.url)}
@@ -260,8 +260,8 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
               </button>
             </div>
 
-            {/* Scrollable stacked content */}
-            <div className="flex-1 overflow-auto console-scroll p-3 space-y-4">
+            {/* ── Upper panel: General + Headers ── */}
+            <div className="flex-1 overflow-auto console-scroll p-3 space-y-4 border-b border-border">
               {/* General */}
               <section>
                 <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">General</h4>
@@ -305,39 +305,39 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                   </div>
                 </section>
               )}
+            </div>
 
-              {/* Response Body */}
-              <section>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <h4 className="text-[10px] text-white/25 uppercase tracking-wider">Response Body</h4>
-                  {selected.bodySize > 0 && (
-                    <>
-                      <span className="text-[9px] text-white/15">
-                        {formatSize(selected.bodySize)}
-                        {selected.bodySize > 500 * 1024 && ' · truncated'}
-                      </span>
-                      <div className="flex-1" />
-                      <button
-                        onClick={() => downloadBody(selected)}
-                        disabled={saving}
-                        className="px-2 py-0.5 text-[10px] text-accent/60 hover:text-accent
-                                   hover:bg-accent/10 rounded transition-colors disabled:opacity-30"
-                      >
-                        {saving ? 'Saving…' : '↓ Save'}
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div className="text-[11px] font-mono bg-surface-0/50 rounded p-2 border border-border/20">
-                  {loadingBody ? (
-                    <span className="text-white/20 animate-pulse">Loading…</span>
-                  ) : responseBody ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{responseBody}</pre>
-                  ) : (
-                    <span className="text-white/20 text-[10px]">No body</span>
-                  )}
-                </div>
-              </section>
+            {/* ── Lower panel: Response Body ── */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-1 border-b border-border shrink-0">
+              <span className="text-[11px] text-white/40 font-mono">Response Body</span>
+              {selected.bodySize > 0 && (
+                <>
+                  <span className="text-[9px] text-white/20 font-mono">
+                    {formatSize(selected.bodySize)}
+                    {selected.bodySize > 500 * 1024 && ' · truncated'}
+                  </span>
+                  <div className="flex-1" />
+                  <button
+                    onClick={() => downloadBody(selected)}
+                    disabled={saving}
+                    className="px-2 py-0.5 text-[10px] text-accent/60 hover:text-accent
+                               hover:bg-accent/10 rounded transition-colors disabled:opacity-30"
+                  >
+                    {saving ? 'Saving…' : '↓ Save'}
+                  </button>
+                </>
+              )}
+            </div>
+            <div className="flex-1 overflow-auto console-scroll p-3">
+              <div className="text-[11px] font-mono">
+                {loadingBody ? (
+                  <span className="text-white/20 animate-pulse">Loading…</span>
+                ) : responseBody ? (
+                  <pre className="text-white/50 whitespace-pre-wrap break-all">{responseBody}</pre>
+                ) : (
+                  <span className="text-white/20 text-[10px]">No body</span>
+                )}
+              </div>
             </div>
           </div>
         )}
