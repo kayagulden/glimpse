@@ -151,15 +151,17 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 			s.mu.Unlock()
 
 			if req != nil && s.appCtx != nil {
-				// Eagerly fetch and cache body while it's still in CDP memory.
-				body, err := cdpNetwork.GetResponseBody(cdpNetwork.RequestID(reqID)).Do(ctx)
-				if err == nil && len(body) > 0 {
-					s.mu.Lock()
-					s.bodyCache[reqID] = body
-					s.mu.Unlock()
-					req.BodySize = int64(len(body))
-				}
-				wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, req)
+				// Fetch body in a goroutine — CDP calls block inside ListenTarget.
+				go func(r *NetworkRequest, rid string) {
+					body, err := cdpNetwork.GetResponseBody(cdpNetwork.RequestID(rid)).Do(ctx)
+					if err == nil && len(body) > 0 {
+						s.mu.Lock()
+						s.bodyCache[rid] = body
+						s.mu.Unlock()
+						r.BodySize = int64(len(body))
+					}
+					wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, r)
+				}(req, reqID)
 			}
 
 		case *cdpNetwork.EventLoadingFailed:

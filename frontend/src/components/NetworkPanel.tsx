@@ -72,7 +72,6 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   const [loadingBody, setLoadingBody] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
-  const [detailTab, setDetailTab] = useState<'headers' | 'response'>('headers');
   const listEndRef = useRef<HTMLDivElement>(null);
 
   // Enable network when tab is selected
@@ -107,14 +106,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
     ClearNetworkCache().catch(() => {});
   }, [selectedTab]);
 
-  // Select a request to view details
-  const selectRequest = useCallback((req: NetworkRequest) => {
-    setSelected(req);
-    setDetailTab('headers');
-    setResponseBody('');
-  }, []);
-
-  // Lazy-load body when Response tab is clicked
+  // Load response body from Go cache
   const loadBody = useCallback(async (requestId: string) => {
     setLoadingBody(true);
     try {
@@ -126,6 +118,15 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
       setLoadingBody(false);
     }
   }, []);
+
+  // Select a request to view details
+  const selectRequest = useCallback((req: NetworkRequest) => {
+    setSelected(req);
+    setResponseBody('');
+    if (req.bodySize > 0) {
+      loadBody(req.requestId);
+    }
+  }, [loadBody]);
 
   // Download full response body
   const downloadBody = useCallback(async (req: NetworkRequest) => {
@@ -243,91 +244,77 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
           )}
         </div>
 
-        {/* Detail panel */}
+        {/* Detail panel — stacked: headers + response body */}
         {selected && (
           <div className="w-1/2 flex flex-col min-w-0">
-            {/* Detail tabs */}
-            <div className="flex items-center gap-0 bg-surface-1 border-b border-border shrink-0">
-              {(['headers', 'response'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setDetailTab(tab);
-                    if (tab === 'response' && selected && !responseBody && !loadingBody) {
-                      loadBody(selected.requestId);
-                    }
-                  }}
-                  className={`px-3 py-1.5 text-[11px] transition-colors capitalize
-                    ${detailTab === tab
-                      ? 'text-accent border-b-2 border-accent'
-                      : 'text-white/30 hover:text-white/50'}`}
-                >
-                  {tab}
-                </button>
-              ))}
-              <div className="flex-1" />
+            {/* Detail header */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-1 border-b border-border shrink-0">
+              <span className="text-[11px] text-white/40 font-mono truncate flex-1" title={selected.url}>
+                {selected.method} <span className={statusColor(selected.status, selected.error)}>{selected.status}</span> {urlFilename(selected.url)}
+              </span>
               <button
-                onClick={() => { setSelected(null); }}
-                className="px-2 py-1 text-white/20 hover:text-white/50 text-xs transition-colors"
+                onClick={() => { setSelected(null); setResponseBody(''); }}
+                className="px-1.5 py-0.5 text-white/20 hover:text-white/50 text-xs transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            {/* Detail content */}
-            <div className="flex-1 overflow-auto console-scroll p-3">
-              {detailTab === 'headers' ? (
-                <div className="space-y-4">
-                  {/* General */}
-                  <div>
-                    <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">General</h4>
-                    <div className="space-y-0.5 text-[11px] font-mono">
-                      <div><span className="text-white/30">URL: </span><span className="text-white/60 break-all">{selected.url}</span></div>
-                      <div><span className="text-white/30">Method: </span><span className="text-white/60">{selected.method}</span></div>
-                      <div><span className="text-white/30">Status: </span><span className={statusColor(selected.status, selected.error)}>{selected.status} {selected.statusText}</span></div>
-                      <div><span className="text-white/30">Type: </span><span className="text-white/60">{selected.type}</span></div>
-                      {selected.error && <div><span className="text-white/30">Error: </span><span className="text-red-400">{selected.error}</span></div>}
-                    </div>
-                  </div>
-
-                  {/* Request Headers */}
-                  {selected.reqHeaders && Object.keys(selected.reqHeaders).length > 0 && (
-                    <div>
-                      <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">Request Headers</h4>
-                      <div className="space-y-0.5 text-[11px] font-mono">
-                        {Object.entries(selected.reqHeaders).map(([k, v]) => (
-                          <div key={k}>
-                            <span className="text-[#D19A66]">{k}: </span>
-                            <span className="text-white/50 break-all">{v}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Response Headers */}
-                  {selected.respHeaders && Object.keys(selected.respHeaders).length > 0 && (
-                    <div>
-                      <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">Response Headers</h4>
-                      <div className="space-y-0.5 text-[11px] font-mono">
-                        {Object.entries(selected.respHeaders).map(([k, v]) => (
-                          <div key={k}>
-                            <span className="text-[#D19A66]">{k}: </span>
-                            <span className="text-white/50 break-all">{v}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {/* Scrollable stacked content */}
+            <div className="flex-1 overflow-auto console-scroll p-3 space-y-4">
+              {/* General */}
+              <section>
+                <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">General</h4>
+                <div className="space-y-0.5 text-[11px] font-mono">
+                  <div><span className="text-white/30">URL: </span><span className="text-white/60 break-all">{selected.url}</span></div>
+                  <div><span className="text-white/30">Method: </span><span className="text-white/60">{selected.method}</span></div>
+                  <div><span className="text-white/30">Status: </span><span className={statusColor(selected.status, selected.error)}>{selected.status} {selected.statusText}</span></div>
+                  <div><span className="text-white/30">Type: </span><span className="text-white/60">{selected.type}</span></div>
+                  <div><span className="text-white/30">Time: </span><span className="text-white/60">{formatDuration(selected.duration)}</span></div>
+                  <div><span className="text-white/30">Size: </span><span className="text-white/60">{formatSize(selected.size)}</span></div>
+                  {selected.error && <div><span className="text-white/30">Error: </span><span className="text-red-400">{selected.error}</span></div>}
                 </div>
-              ) : (
-                <div className="text-[11px] font-mono">
-                  {/* Body toolbar */}
+              </section>
+
+              {/* Request Headers */}
+              {selected.reqHeaders && Object.keys(selected.reqHeaders).length > 0 && (
+                <section>
+                  <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">Request Headers</h4>
+                  <div className="space-y-0.5 text-[11px] font-mono">
+                    {Object.entries(selected.reqHeaders).map(([k, v]) => (
+                      <div key={k}>
+                        <span className="text-[#D19A66]">{k}: </span>
+                        <span className="text-white/50 break-all">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Response Headers */}
+              {selected.respHeaders && Object.keys(selected.respHeaders).length > 0 && (
+                <section>
+                  <h4 className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">Response Headers</h4>
+                  <div className="space-y-0.5 text-[11px] font-mono">
+                    {Object.entries(selected.respHeaders).map(([k, v]) => (
+                      <div key={k}>
+                        <span className="text-[#D19A66]">{k}: </span>
+                        <span className="text-white/50 break-all">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Response Body */}
+              <section>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <h4 className="text-[10px] text-white/25 uppercase tracking-wider">Response Body</h4>
                   {selected.bodySize > 0 && (
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/30">
-                      <span className="text-[10px] text-white/20">
+                    <>
+                      <span className="text-[9px] text-white/15">
                         {formatSize(selected.bodySize)}
-                        {selected.bodySize > 500 * 1024 && ' (preview truncated)'}
+                        {selected.bodySize > 500 * 1024 && ' · truncated'}
                       </span>
                       <div className="flex-1" />
                       <button
@@ -336,19 +323,21 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                         className="px-2 py-0.5 text-[10px] text-accent/60 hover:text-accent
                                    hover:bg-accent/10 rounded transition-colors disabled:opacity-30"
                       >
-                        {saving ? 'Saving…' : '↓ Download'}
+                        {saving ? 'Saving…' : '↓ Save'}
                       </button>
-                    </div>
-                  )}
-                  {loadingBody ? (
-                    <span className="text-white/20 animate-pulse">Loading response body…</span>
-                  ) : responseBody ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all">{responseBody}</pre>
-                  ) : (
-                    <span className="text-white/20">No response body available</span>
+                    </>
                   )}
                 </div>
-              )}
+                <div className="text-[11px] font-mono bg-surface-0/50 rounded p-2 border border-border/20">
+                  {loadingBody ? (
+                    <span className="text-white/20 animate-pulse">Loading…</span>
+                  ) : responseBody ? (
+                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{responseBody}</pre>
+                  ) : (
+                    <span className="text-white/20 text-[10px]">No body</span>
+                  )}
+                </div>
+              </section>
             </div>
           </div>
         )}
