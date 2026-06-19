@@ -200,16 +200,23 @@ func (a *App) SaveGeminiKey(apiKey string) error {
 	return cdp.SaveConfig(cfg)
 }
 
+// SaveGeminiModel saves the selected Gemini model to config.
+func (a *App) SaveGeminiModel(model string) error {
+	cfg, _ := cdp.LoadConfig()
+	cfg.GeminiModel = model
+	return cdp.SaveConfig(cfg)
+}
+
 // --- AI bindings ---
 
 // DebugAnalysis runs AI-powered debug analysis on the given tab.
 func (a *App) DebugAnalysis(targetID string) (string, error) {
 	cfg, _ := cdp.LoadConfig()
-	return a.ai.DebugAnalysis(targetID, cfg.GeminiAPIKey)
+	return a.ai.DebugAnalysis(targetID, cfg.GeminiAPIKey, cfg.GeminiModel)
 }
 
 // SiteAudit runs a comprehensive AI-powered site audit on the given tab.
 func (a *App) SiteAudit(targetID string) (string, error) {
 	cfg, _ := cdp.LoadConfig()
-	return a.ai.SiteAudit(targetID, cfg.GeminiAPIKey)
+	return a.ai.SiteAudit(targetID, cfg.GeminiAPIKey, cfg.GeminiModel)
 }

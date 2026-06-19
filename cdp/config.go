@@ -9,6 +9,7 @@ import (
 // Config holds user settings.
 type Config struct {
 	GeminiAPIKey string `json:"geminiApiKey"`
+	GeminiModel  string `json:"geminiModel"`
 }
 
 // configPath returns the path to the config file.

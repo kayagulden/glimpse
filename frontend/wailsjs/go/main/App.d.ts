@@ -50,6 +50,8 @@ export function RunJS(arg1:string):Promise<void>;
 
 export function SaveGeminiKey(arg1:string):Promise<void>;
 
+export function SaveGeminiModel(arg1:string):Promise<void>;
+
 export function SaveResponseBody(arg1:string,arg2:string):Promise<string>;
 
 export function SearchDOM(arg1:string,arg2:string):Promise<Array<cdp.SearchResult>>;

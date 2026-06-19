@@ -48,7 +48,7 @@ Eğer hiç sorun yoksa bunu belirt ve genel iyileştirme önerileri sun.
 Yanıtını Türkçe ve Markdown formatında ver. Kısa ve öz ol.`
 
 // DebugAnalysis collects errors and issues from console/network/performance and asks Gemini for diagnosis.
-func (s *AIService) DebugAnalysis(targetID string, apiKey string) (string, error) {
+func (s *AIService) DebugAnalysis(targetID string, apiKey string, model string) (string, error) {
 	if apiKey == "" {
 		return "", fmt.Errorf("Gemini API key gerekli")
 	}
@@ -94,7 +94,7 @@ func (s *AIService) DebugAnalysis(targetID string, apiKey string) (string, error
 	log.Printf("[AI] Debug analysis prompt: %d chars", len(prompt))
 
 	client := NewGeminiClient(apiKey)
-	return client.Generate(debugSystemPrompt, prompt)
+	return client.Generate(debugSystemPrompt, prompt, model)
 }
 
 // ── Site Audit ──
@@ -238,7 +238,7 @@ func (s *AIService) collectSiteData(targetID string) (*SiteAuditData, error) {
 }
 
 // SiteAudit performs a comprehensive site audit using collected data + Gemini.
-func (s *AIService) SiteAudit(targetID string, apiKey string) (string, error) {
+func (s *AIService) SiteAudit(targetID string, apiKey string, model string) (string, error) {
 	if apiKey == "" {
 		return "", fmt.Errorf("Gemini API key gerekli")
 	}
@@ -302,7 +302,7 @@ func (s *AIService) SiteAudit(targetID string, apiKey string) (string, error) {
 	log.Printf("[AI] Site audit prompt: %d chars", len(prompt))
 
 	client := NewGeminiClient(apiKey)
-	return client.Generate(auditSystemPrompt, prompt)
+	return client.Generate(auditSystemPrompt, prompt, model)
 }
 
 // ── Helpers ──

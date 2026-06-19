@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { GetConfig, SaveGeminiKey, DebugAnalysis, SiteAudit } from '../../wailsjs/go/main/App';
+import { GetConfig, SaveGeminiKey, SaveGeminiModel, DebugAnalysis, SiteAudit } from '../../wailsjs/go/main/App';
+
+const MODELS = [
+  { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Hızlı)' },
+  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Detaylı)' },
+];
 
 interface AIPanelProps {
   connected: boolean;
@@ -10,6 +17,7 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
   const [apiKey, setApiKey] = useState('');
   const [keySaved, setKeySaved] = useState(false);
   const [keyInput, setKeyInput] = useState('');
+  const [model, setModel] = useState('gemini-2.0-flash-lite');
 
   // Debug state
   const [debugResult, setDebugResult] = useState('');
@@ -21,13 +29,16 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
 
   const [error, setError] = useState('');
 
-  // Load saved API key
+  // Load saved config
   useEffect(() => {
     GetConfig().then(cfg => {
       if (cfg && cfg.geminiApiKey) {
         setApiKey(cfg.geminiApiKey);
         setKeyInput(cfg.geminiApiKey);
         setKeySaved(true);
+      }
+      if (cfg && cfg.geminiModel) {
+        setModel(cfg.geminiModel);
       }
     }).catch(() => {});
   }, []);
@@ -92,15 +103,15 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* API Key Bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-surface-1/50 shrink-0">
-        <span className="text-[10px] text-white/30 uppercase tracking-wider">Gemini API Key</span>
+      {/* Settings Bar */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-surface-1/50 shrink-0 flex-wrap">
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">API Key</span>
         <input
           type="password"
           value={keyInput}
           onChange={e => { setKeyInput(e.target.value); setKeySaved(false); }}
           placeholder="API key giriniz..."
-          className="flex-1 px-2.5 py-1 bg-surface-0 border border-border/40 rounded
+          className="flex-1 min-w-[140px] px-2.5 py-1 bg-surface-0 border border-border/40 rounded
                      text-[11px] text-white/60 font-mono placeholder:text-white/15
                      focus:outline-none focus:border-accent/40"
         />
@@ -113,8 +124,26 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
               : 'text-accent/70 border-accent/20 bg-accent/5 hover:bg-accent/10'
           } disabled:opacity-40`}
         >
-          {keySaved ? '✓ Kayıtlı' : 'Kaydet'}
+          {keySaved ? '✓' : 'Kaydet'}
         </button>
+
+        <span className="text-white/10">|</span>
+
+        <span className="text-[10px] text-white/30 uppercase tracking-wider">Model</span>
+        <select
+          value={model}
+          onChange={e => {
+            setModel(e.target.value);
+            SaveGeminiModel(e.target.value).catch(() => {});
+          }}
+          className="px-2 py-1 bg-surface-0 border border-border/40 rounded
+                     text-[11px] text-white/60 focus:outline-none focus:border-accent/40
+                     [&>option]:bg-[#1a1a2e] [&>option]:text-white/60"
+        >
+          {MODELS.map(m => (
+            <option key={m.id} value={m.id}>{m.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="flex-1 overflow-auto console-scroll p-4 space-y-5">

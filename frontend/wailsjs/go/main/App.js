@@ -98,6 +98,10 @@ export function SaveGeminiKey(arg1) {
   return window['go']['main']['App']['SaveGeminiKey'](arg1);
 }
 
+export function SaveGeminiModel(arg1) {
+  return window['go']['main']['App']['SaveGeminiModel'](arg1);
+}
+
 export function SaveResponseBody(arg1, arg2) {
   return window['go']['main']['App']['SaveResponseBody'](arg1, arg2);
 }
