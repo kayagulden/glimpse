@@ -10,6 +10,7 @@ type App struct {
 	ctx      context.Context
 	console  *cdp.ConsoleService
 	elements *cdp.ElementsService
+	storage  *cdp.StorageService
 }
 
 // NewApp creates a new App with its services.
@@ -18,6 +19,7 @@ func NewApp() *App {
 	return &App{
 		console:  cs,
 		elements: cdp.NewElementsService(cs),
+		storage:  cdp.NewStorageService(cs),
 	}
 }
 
@@ -90,4 +92,21 @@ func (a *App) SearchDOM(targetID string, query string) ([]cdp.SearchResult, erro
 // GetNodePath returns the ancestor chain (root→target) as node IDs.
 func (a *App) GetNodePath(targetID string, nodeID int64) ([]int, error) {
 	return a.elements.GetNodePath(targetID, nodeID)
+}
+
+// --- Storage bindings ---
+
+// GetCookies returns all cookies for the given tab.
+func (a *App) GetCookies(targetID string) ([]cdp.CookieEntry, error) {
+	return a.storage.GetCookies(targetID)
+}
+
+// GetLocalStorage returns all localStorage entries for the given tab.
+func (a *App) GetLocalStorage(targetID string) ([]cdp.StorageEntry, error) {
+	return a.storage.GetLocalStorage(targetID)
+}
+
+// GetSessionStorage returns all sessionStorage entries for the given tab.
+func (a *App) GetSessionStorage(targetID string) ([]cdp.StorageEntry, error) {
+	return a.storage.GetSessionStorage(targetID)
 }

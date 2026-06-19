@@ -6,6 +6,7 @@ interface TabBarProps {
 const TABS = [
   { id: 'console', label: 'Console' },
   { id: 'elements', label: 'Elements' },
+  { id: 'application', label: 'Application' },
 ];
 
 export function TabBar({ activeTab, onTabChange }: TabBarProps) {

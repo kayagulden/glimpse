@@ -18,12 +18,24 @@ export function GetChildNodes(arg1, arg2) {
   return window['go']['main']['App']['GetChildNodes'](arg1, arg2);
 }
 
+export function GetCookies(arg1) {
+  return window['go']['main']['App']['GetCookies'](arg1);
+}
+
 export function GetDOMTree(arg1) {
   return window['go']['main']['App']['GetDOMTree'](arg1);
 }
 
+export function GetLocalStorage(arg1) {
+  return window['go']['main']['App']['GetLocalStorage'](arg1);
+}
+
 export function GetNodePath(arg1, arg2) {
   return window['go']['main']['App']['GetNodePath'](arg1, arg2);
+}
+
+export function GetSessionStorage(arg1) {
+  return window['go']['main']['App']['GetSessionStorage'](arg1);
 }
 
 export function GetTabs() {

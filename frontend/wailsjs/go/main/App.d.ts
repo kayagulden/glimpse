@@ -10,9 +10,15 @@ export function DisconnectFromChrome():Promise<void>;
 
 export function GetChildNodes(arg1:string,arg2:number):Promise<Array<cdp.DOMNode>>;
 
+export function GetCookies(arg1:string):Promise<Array<cdp.CookieEntry>>;
+
 export function GetDOMTree(arg1:string):Promise<cdp.DOMNode>;
 
+export function GetLocalStorage(arg1:string):Promise<Array<cdp.StorageEntry>>;
+
 export function GetNodePath(arg1:string,arg2:number):Promise<Array<number>>;
+
+export function GetSessionStorage(arg1:string):Promise<Array<cdp.StorageEntry>>;
 
 export function GetTabs():Promise<Array<cdp.TabInfo>>;
 

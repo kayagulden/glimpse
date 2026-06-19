@@ -1,5 +1,33 @@
 export namespace cdp {
 	
+	export class CookieEntry {
+	    name: string;
+	    value: string;
+	    domain: string;
+	    path: string;
+	    expires: number;
+	    httpOnly: boolean;
+	    secure: boolean;
+	    sameSite: string;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CookieEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.value = source["value"];
+	        this.domain = source["domain"];
+	        this.path = source["path"];
+	        this.expires = source["expires"];
+	        this.httpOnly = source["httpOnly"];
+	        this.secure = source["secure"];
+	        this.sameSite = source["sameSite"];
+	        this.size = source["size"];
+	    }
+	}
 	export class DOMNode {
 	    nodeId: number;
 	    nodeType: number;
@@ -64,6 +92,20 @@ export namespace cdp {
 	        this.localName = source["localName"];
 	        this.nodeValue = source["nodeValue"];
 	        this.selector = source["selector"];
+	    }
+	}
+	export class StorageEntry {
+	    key: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StorageEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
 	    }
 	}
 	export class TabInfo {

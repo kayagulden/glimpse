@@ -4,6 +4,7 @@ import { ConnectionBar } from './components/ConnectionBar';
 import { TabBar } from './components/TabBar';
 import { ConsolePanel } from './components/ConsolePanel';
 import { ElementsPanel } from './components/ElementsPanel';
+import { ApplicationPanel } from './components/ApplicationPanel';
 
 function App() {
   const [connected, setConnected] = useState(false);
@@ -34,9 +35,11 @@ function App() {
       <div className="flex-1 min-h-0">
         {activePanel === 'console' ? (
           <ConsolePanel connected={connected} selectedTab={selectedTab} />
-        ) : (
+        ) : activePanel === 'elements' ? (
           <ElementsPanel connected={connected} selectedTab={selectedTab} />
-        )}
+        ) : activePanel === 'application' ? (
+          <ApplicationPanel connected={connected} selectedTab={selectedTab} />
+        ) : null}
       </div>
     </div>
   );
