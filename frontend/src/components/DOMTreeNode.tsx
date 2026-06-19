@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export interface DOMNodeData {
   nodeId: number;
@@ -17,6 +17,8 @@ interface DOMTreeNodeProps {
   onExpand: (nodeId: number) => Promise<DOMNodeData[]>;
   onHover: (nodeId: number) => void;
   onHoverEnd: () => void;
+  revealPath?: number[];   // nodeId chain from root to target
+  revealTarget?: number;   // the final nodeId to highlight
 }
 
 // Void elements that don't have closing tags.
@@ -25,13 +27,47 @@ const VOID_ELEMENTS = new Set([
   'link','meta','param','source','track','wbr',
 ]);
 
-export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd }: DOMTreeNodeProps) {
-  const [expanded, setExpanded] = useState(depth < 2); // auto-expand first 2 levels
+export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd, revealPath, revealTarget }: DOMTreeNodeProps) {
+  const isInPath = revealPath?.includes(node.nodeId) ?? false;
+  const isTarget = node.nodeId === revealTarget;
+
+  const [expanded, setExpanded] = useState(depth < 2 || isInPath);
   const [children, setChildren] = useState<DOMNodeData[] | null>(node.children);
   const [loading, setLoading] = useState(false);
 
+  const elRef = useRef<HTMLDivElement>(null);
+
   const hasChildren = (children && children.length > 0) || node.childCount > 0;
   const isVoid = VOID_ELEMENTS.has(node.localName);
+
+  // Auto-expand & load children when this node is in the reveal path
+  useEffect(() => {
+    if (!isInPath || !hasChildren || isVoid) return;
+
+    async function revealExpand() {
+      if (!children || children.length === 0) {
+        setLoading(true);
+        try {
+          const fetched = await onExpand(node.nodeId);
+          setChildren(fetched);
+        } catch (e) {
+          console.error('Reveal expand failed:', e);
+        } finally {
+          setLoading(false);
+        }
+      }
+      setExpanded(true);
+    }
+
+    revealExpand();
+  }, [revealPath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll target into view
+  useEffect(() => {
+    if (isTarget && elRef.current) {
+      elRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isTarget, revealTarget]);
 
   const handleToggle = useCallback(async () => {
     if (!hasChildren) return;
@@ -41,7 +77,6 @@ export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd }: DOMT
       return;
     }
 
-    // Lazy load children if we don't have them yet
     if (!children || children.length === 0) {
       setLoading(true);
       try {
@@ -71,6 +106,8 @@ export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd }: DOMT
             onExpand={onExpand}
             onHover={onHover}
             onHoverEnd={onHoverEnd}
+            revealPath={revealPath}
+            revealTarget={revealTarget}
           />
         ))}
       </>
@@ -94,10 +131,12 @@ export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd }: DOMT
   // --- Text node (nodeType 3) ---
   if (node.nodeType === 3) {
     const text = (node.nodeValue || '').trim();
-    if (!text) return null; // skip whitespace-only text nodes
+    if (!text) return null;
     return (
       <div
-        className="py-[2px] hover:bg-white/[0.03] transition-colors"
+        ref={isTarget ? elRef : undefined}
+        className={`py-[2px] hover:bg-white/[0.03] transition-colors
+          ${isTarget ? 'bg-accent/15 ring-1 ring-accent/30 rounded' : ''}`}
         style={{ paddingLeft: indent }}
         onMouseEnter={() => onHover(node.nodeId)}
         onMouseLeave={onHoverEnd}
@@ -134,7 +173,9 @@ export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd }: DOMT
     <div>
       {/* Opening tag line */}
       <div
-        className="flex items-center py-[2px] hover:bg-white/[0.03] group transition-colors cursor-default"
+        ref={isTarget ? elRef : undefined}
+        className={`flex items-center py-[2px] hover:bg-white/[0.03] group transition-colors cursor-default
+          ${isTarget ? 'bg-accent/15 ring-1 ring-accent/30 rounded' : ''}`}
         style={{ paddingLeft: indent }}
         onMouseEnter={() => onHover(node.nodeId)}
         onMouseLeave={onHoverEnd}
@@ -202,6 +243,8 @@ export function DOMTreeNode({ node, depth, onExpand, onHover, onHoverEnd }: DOMT
               onExpand={onExpand}
               onHover={onHover}
               onHoverEnd={onHoverEnd}
+              revealPath={revealPath}
+              revealTarget={revealTarget}
             />
           ))}
           {/* Closing tag */}

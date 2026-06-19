@@ -86,3 +86,8 @@ func (a *App) ClearHighlight(targetID string) error {
 func (a *App) SearchDOM(targetID string, query string) ([]cdp.SearchResult, error) {
 	return a.elements.SearchDOM(targetID, query)
 }
+
+// GetNodePath returns the ancestor chain (root→target) as node IDs.
+func (a *App) GetNodePath(targetID string, nodeID int64) ([]int, error) {
+	return a.elements.GetNodePath(targetID, nodeID)
+}

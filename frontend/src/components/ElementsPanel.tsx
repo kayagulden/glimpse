@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { GetDOMTree, GetChildNodes, HighlightNode, ClearHighlight, SearchDOM } from '../../wailsjs/go/main/App';
+import { GetDOMTree, GetChildNodes, HighlightNode, ClearHighlight, SearchDOM, GetNodePath } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { DOMTreeNode, type DOMNodeData } from './DOMTreeNode';
 
@@ -30,6 +30,10 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Reveal state
+  const [revealPath, setRevealPath] = useState<number[]>([]);
+  const [revealTarget, setRevealTarget] = useState<number | null>(null);
 
   // Fetch DOM
   const fetchDOM = useCallback(async () => {
@@ -116,13 +120,27 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
     return () => clearTimeout(searchTimer.current);
   }, [searchQuery, selectedTab]);
 
+  // Reveal a node in the DOM tree
+  const revealNode = useCallback(async (highlightNodeId: number) => {
+    HighlightNode(selectedTab, highlightNodeId).catch(() => {});
+    try {
+      const path = await GetNodePath(selectedTab, highlightNodeId);
+      if (path && path.length > 0) {
+        setRevealPath(path as number[]);
+        setRevealTarget(highlightNodeId);
+      }
+    } catch {
+      // silently fail — reveal is best-effort
+    }
+  }, [selectedTab]);
+
   // Navigate search results
   const navigateResult = useCallback((delta: number) => {
     if (searchResults.length === 0) return;
     const next = (searchIndex + delta + searchResults.length) % searchResults.length;
     setSearchIndex(next);
-    HighlightNode(selectedTab, searchResults[next].highlightNodeId).catch(() => {});
-  }, [searchResults, searchIndex, selectedTab]);
+    revealNode(searchResults[next].highlightNodeId);
+  }, [searchResults, searchIndex, revealNode]);
 
   const handleExpand = useCallback(async (nodeId: number): Promise<DOMNodeData[]> => {
     const children = await GetChildNodes(selectedTab, nodeId);
@@ -281,7 +299,7 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
               key={`${result.nodeId}-${i}`}
               onClick={() => {
                 setSearchIndex(i);
-                HighlightNode(selectedTab, result.highlightNodeId).catch(() => {});
+                revealNode(result.highlightNodeId);
               }}
               onMouseEnter={() => HighlightNode(selectedTab, result.highlightNodeId).catch(() => {})}
               onMouseLeave={() => ClearHighlight(selectedTab).catch(() => {})}
@@ -306,6 +324,8 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
           onExpand={handleExpand}
           onHover={handleHover}
           onHoverEnd={handleHoverEnd}
+          revealPath={revealPath}
+          revealTarget={revealTarget ?? undefined}
         />
       </div>
     </div>

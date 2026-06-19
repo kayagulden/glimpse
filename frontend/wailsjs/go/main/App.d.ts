@@ -12,6 +12,8 @@ export function GetChildNodes(arg1:string,arg2:number):Promise<Array<cdp.DOMNode
 
 export function GetDOMTree(arg1:string):Promise<cdp.DOMNode>;
 
+export function GetNodePath(arg1:string,arg2:number):Promise<Array<number>>;
+
 export function GetTabs():Promise<Array<cdp.TabInfo>>;
 
 export function HighlightNode(arg1:string,arg2:number):Promise<void>;

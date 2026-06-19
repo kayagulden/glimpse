@@ -162,6 +162,9 @@ func (s *ElementsService) HighlightNode(targetID string, nodeID int64) error {
 	}
 
 	return chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		// Scroll into view so the element is visible.
+		_ = dom.ScrollIntoViewIfNeeded().WithNodeID(cdp.NodeID(nodeID)).Do(ctx)
+
 		cfg := &overlay.HighlightConfig{
 			ContentColor: &cdp.RGBA{R: 111, G: 168, B: 220, A: 0.66},
 			PaddingColor: &cdp.RGBA{R: 147, G: 196, B: 125, A: 0.55},
@@ -301,6 +304,55 @@ func resolveParentElement(ctx context.Context, nodeID cdp.NodeID) cdp.NodeID {
 	}
 
 	return parentNodeID
+}
+
+// resolveParentNode finds the parent node's ID (includes non-element parents like document).
+func resolveParentNode(ctx context.Context, nodeID cdp.NodeID) cdp.NodeID {
+	remoteObj, err := dom.ResolveNode().WithNodeID(nodeID).Do(ctx)
+	if err != nil || remoteObj == nil || remoteObj.ObjectID == "" {
+		return 0
+	}
+
+	parentObj, _, err := runtimePkg.CallFunctionOn(`function() { return this.parentNode; }`).
+		WithObjectID(remoteObj.ObjectID).
+		Do(ctx)
+	if err != nil || parentObj == nil || parentObj.ObjectID == "" {
+		return 0
+	}
+
+	parentNodeID, err := dom.RequestNode(parentObj.ObjectID).Do(ctx)
+	if err != nil {
+		return 0
+	}
+	return parentNodeID
+}
+
+// GetNodePath returns the ancestor chain from root to the target node (as nodeIDs).
+func (s *ElementsService) GetNodePath(targetID string, nodeID int64) ([]int, error) {
+	ctx, err := s.console.GetTabContext(targetID)
+	if err != nil {
+		return nil, err
+	}
+
+	var path []int
+	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		currentID := cdp.NodeID(nodeID)
+
+		for i := 0; i < 50; i++ { // safety limit
+			path = append([]int{int(currentID)}, path...)
+
+			parentID := resolveParentNode(ctx, currentID)
+			if parentID == 0 {
+				break
+			}
+			currentID = parentID
+		}
+		return nil
+	})); err != nil {
+		return nil, err
+	}
+
+	return path, nil
 }
 
 // buildSelector creates a short readable selector from a node (e.g. "div.container#main").

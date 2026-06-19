@@ -22,6 +22,10 @@ export function GetDOMTree(arg1) {
   return window['go']['main']['App']['GetDOMTree'](arg1);
 }
 
+export function GetNodePath(arg1, arg2) {
+  return window['go']['main']['App']['GetNodePath'](arg1, arg2);
+}
+
 export function GetTabs() {
   return window['go']['main']['App']['GetTabs']();
 }
