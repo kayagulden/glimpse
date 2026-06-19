@@ -28,7 +28,8 @@ type NetworkRequest struct {
 	Error        string            `json:"error"`
 	ReqHeaders   map[string]string `json:"reqHeaders"`
 	RespHeaders  map[string]string `json:"respHeaders"`
-	BodySize     int64             `json:"bodySize"` // actual body byte length
+	BodySize     int64             `json:"bodySize"`
+	ResponseBody string            `json:"responseBody"`
 }
 
 // NetworkService captures network traffic via CDP Network domain events.
@@ -75,6 +76,14 @@ func (s *NetworkService) EnableNetwork(targetID string) error {
 		return err
 	}
 
+	s.mu.Lock()
+	s.enabledTabs[targetID] = true
+	s.inflight[targetID] = make(map[string]*NetworkRequest)
+	s.mu.Unlock()
+
+	// Register listener BEFORE enabling — events can arrive immediately after enable.
+	s.listenEvents(ctx, targetID)
+
 	// Enable the Network domain.
 	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		return cdpNetwork.Enable().
@@ -84,14 +93,6 @@ func (s *NetworkService) EnableNetwork(targetID string) error {
 	})); err != nil {
 		return fmt.Errorf("Network.enable: %w", err)
 	}
-
-	s.mu.Lock()
-	s.enabledTabs[targetID] = true
-	s.inflight[targetID] = make(map[string]*NetworkRequest)
-	s.mu.Unlock()
-
-	// Listen for network events in a goroutine.
-	go s.listenEvents(ctx, targetID)
 
 	log.Printf("[Network] Enabled for tab %s", targetID)
 	return nil
@@ -153,12 +154,23 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 			if req != nil && s.appCtx != nil {
 				// Fetch body in a goroutine — CDP calls block inside ListenTarget.
 				go func(r *NetworkRequest, rid string) {
-					body, err := cdpNetwork.GetResponseBody(cdpNetwork.RequestID(rid)).Do(ctx)
+					var body []byte
+					err := chromedp.Run(ctx, chromedp.ActionFunc(func(execCtx context.Context) error {
+						var fetchErr error
+						body, fetchErr = cdpNetwork.GetResponseBody(cdpNetwork.RequestID(rid)).Do(execCtx)
+						return fetchErr
+					}))
 					if err == nil && len(body) > 0 {
 						s.mu.Lock()
 						s.bodyCache[rid] = body
 						s.mu.Unlock()
 						r.BodySize = int64(len(body))
+						// Include preview in event (up to 500KB).
+						if len(body) > maxBodyPreview {
+							r.ResponseBody = string(body[:maxBodyPreview]) + fmt.Sprintf("\n\n…(truncated — showing %d of %d bytes)", maxBodyPreview, len(body))
+						} else {
+							r.ResponseBody = string(body)
+						}
 					}
 					wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, r)
 				}(req, reqID)

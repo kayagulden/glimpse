@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { EnableNetwork, GetCachedResponseBody, SaveResponseBody, ClearNetworkCache } from '../../wailsjs/go/main/App';
+import { EnableNetwork, SaveResponseBody, ClearNetworkCache } from '../../wailsjs/go/main/App';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 interface NetworkRequest {
@@ -17,6 +17,7 @@ interface NetworkRequest {
   reqHeaders: Record<string, string> | null;
   respHeaders: Record<string, string> | null;
   bodySize: number;
+  responseBody: string;
 }
 
 interface NetworkPanelProps {
@@ -68,8 +69,6 @@ function urlFilename(url: string): string {
 export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   const [requests, setRequests] = useState<NetworkRequest[]>([]);
   const [selected, setSelected] = useState<NetworkRequest | null>(null);
-  const [responseBody, setResponseBody] = useState('');
-  const [loadingBody, setLoadingBody] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
   const listEndRef = useRef<HTMLDivElement>(null);
@@ -102,31 +101,13 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   useEffect(() => {
     setRequests([]);
     setSelected(null);
-    setResponseBody('');
     ClearNetworkCache().catch(() => {});
   }, [selectedTab]);
-
-  // Load response body from Go cache
-  const loadBody = useCallback(async (requestId: string) => {
-    setLoadingBody(true);
-    try {
-      const body = await GetCachedResponseBody(requestId);
-      setResponseBody(body);
-    } catch {
-      setResponseBody('(Response body not available)');
-    } finally {
-      setLoadingBody(false);
-    }
-  }, []);
 
   // Select a request to view details
   const selectRequest = useCallback((req: NetworkRequest) => {
     setSelected(req);
-    setResponseBody('');
-    if (req.bodySize > 0) {
-      loadBody(req.requestId);
-    }
-  }, [loadBody]);
+  }, []);
 
   // Download full response body
   const downloadBody = useCallback(async (req: NetworkRequest) => {
@@ -185,7 +166,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
         <span className="text-[10px] text-white/20 font-mono">{filtered.length} requests</span>
         <div className="flex-1" />
         <button
-          onClick={() => { setRequests([]); setSelected(null); setResponseBody(''); ClearNetworkCache().catch(() => {}); }}
+          onClick={() => { setRequests([]); setSelected(null); ClearNetworkCache().catch(() => {}); }}
           className="px-2 py-0.5 text-[10px] text-white/30 hover:text-white/60
                      hover:bg-white/5 rounded transition-colors"
         >
@@ -253,7 +234,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                 {selected.method} <span className={statusColor(selected.status, selected.error)}>{selected.status}</span> {urlFilename(selected.url)}
               </span>
               <button
-                onClick={() => { setSelected(null); setResponseBody(''); }}
+                onClick={() => { setSelected(null); }}
                 className="px-1.5 py-0.5 text-white/20 hover:text-white/50 text-xs transition-colors"
               >
                 ✕
@@ -329,10 +310,8 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                   )}
                 </div>
                 <div className="text-[11px] font-mono bg-surface-0/50 rounded p-2 border border-border/20">
-                  {loadingBody ? (
-                    <span className="text-white/20 animate-pulse">Loading…</span>
-                  ) : responseBody ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{responseBody}</pre>
+                  {selected.responseBody ? (
+                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{selected.responseBody}</pre>
                   ) : (
                     <span className="text-white/20 text-[10px]">No body</span>
                   )}
