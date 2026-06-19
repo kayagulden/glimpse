@@ -17,7 +17,6 @@ interface NetworkRequest {
   reqHeaders: Record<string, string> | null;
   respHeaders: Record<string, string> | null;
   bodySize: number;
-  responseBody: string;
 }
 
 interface NetworkPanelProps {
@@ -123,7 +122,7 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
   // Select a request to view details
   const selectRequest = useCallback((req: NetworkRequest) => {
     setSelected(req);
-    setResponseBody(req.responseBody || '');
+    setResponseBody('');
     if (req.bodySize > 0) {
       loadBody(req.requestId);
     }
@@ -332,8 +331,8 @@ export function NetworkPanel({ connected, selectedTab }: NetworkPanelProps) {
                 <div className="text-[11px] font-mono bg-surface-0/50 rounded p-2 border border-border/20">
                   {loadingBody ? (
                     <span className="text-white/20 animate-pulse">Loading…</span>
-                  ) : (responseBody || selected.responseBody) ? (
-                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{responseBody || selected.responseBody}</pre>
+                  ) : responseBody ? (
+                    <pre className="text-white/50 whitespace-pre-wrap break-all max-h-[50vh] overflow-auto console-scroll">{responseBody}</pre>
                   ) : (
                     <span className="text-white/20 text-[10px]">No body</span>
                   )}

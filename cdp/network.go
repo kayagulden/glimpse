@@ -29,7 +29,6 @@ type NetworkRequest struct {
 	ReqHeaders   map[string]string `json:"reqHeaders"`
 	RespHeaders  map[string]string `json:"respHeaders"`
 	BodySize     int64             `json:"bodySize"`
-	ResponseBody string            `json:"responseBody"`
 }
 
 // NetworkService captures network traffic via CDP Network domain events.
@@ -165,12 +164,6 @@ func (s *NetworkService) listenEvents(ctx context.Context, targetID string) {
 						s.bodyCache[rid] = body
 						s.mu.Unlock()
 						r.BodySize = int64(len(body))
-						// Include preview in event (up to 500KB).
-						if len(body) > maxBodyPreview {
-							r.ResponseBody = string(body[:maxBodyPreview]) + fmt.Sprintf("\n\n…(truncated — showing %d of %d bytes)", maxBodyPreview, len(body))
-						} else {
-							r.ResponseBody = string(body)
-						}
 					}
 					wailsRuntime.EventsEmit(s.appCtx, "network:request", targetID, r)
 				}(req, reqID)
