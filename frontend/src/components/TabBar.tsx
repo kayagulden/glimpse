@@ -6,6 +6,7 @@ interface TabBarProps {
 const TABS = [
   { id: 'console', label: 'Console' },
   { id: 'elements', label: 'Elements' },
+  { id: 'network', label: 'Network' },
   { id: 'application', label: 'Application' },
 ];
 

@@ -95,11 +95,6 @@ export function ConnectionBar({ connected, onConnectionChange, selectedTab, onTa
 
       <div className="w-px h-4 bg-border" />
 
-      {/* Tab indicator */}
-      <span className="text-xs font-medium text-accent px-2 py-0.5 bg-accent/10 rounded">
-        Console
-      </span>
-
       {/* Tab selector — only when connected */}
       {connected && tabs.length > 0 && (
         <div className="relative" ref={dropdownRef} style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>

@@ -11,6 +11,7 @@ type App struct {
 	console  *cdp.ConsoleService
 	elements *cdp.ElementsService
 	storage  *cdp.StorageService
+	network  *cdp.NetworkService
 }
 
 // NewApp creates a new App with its services.
@@ -20,6 +21,7 @@ func NewApp() *App {
 		console:  cs,
 		elements: cdp.NewElementsService(cs),
 		storage:  cdp.NewStorageService(cs),
+		network:  cdp.NewNetworkService(cs),
 	}
 }
 
@@ -28,6 +30,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.console.SetAppContext(ctx)
 	a.elements.SetAppContext(ctx)
+	a.network.SetAppContext(ctx)
 }
 
 // shutdown is called by Wails when the app is closing.
@@ -109,4 +112,16 @@ func (a *App) GetLocalStorage(targetID string) ([]cdp.StorageEntry, error) {
 // GetSessionStorage returns all sessionStorage entries for the given tab.
 func (a *App) GetSessionStorage(targetID string) ([]cdp.StorageEntry, error) {
 	return a.storage.GetSessionStorage(targetID)
+}
+
+// --- Network bindings ---
+
+// EnableNetwork enables network capture for the given tab.
+func (a *App) EnableNetwork(targetID string) error {
+	return a.network.EnableNetwork(targetID)
+}
+
+// GetResponseBody returns the response body of a captured request.
+func (a *App) GetResponseBody(targetID string, requestID string) (string, error) {
+	return a.network.GetResponseBody(targetID, requestID)
 }

@@ -14,6 +14,10 @@ export function DisconnectFromChrome() {
   return window['go']['main']['App']['DisconnectFromChrome']();
 }
 
+export function EnableNetwork(arg1) {
+  return window['go']['main']['App']['EnableNetwork'](arg1);
+}
+
 export function GetChildNodes(arg1, arg2) {
   return window['go']['main']['App']['GetChildNodes'](arg1, arg2);
 }
@@ -32,6 +36,10 @@ export function GetLocalStorage(arg1) {
 
 export function GetNodePath(arg1, arg2) {
   return window['go']['main']['App']['GetNodePath'](arg1, arg2);
+}
+
+export function GetResponseBody(arg1, arg2) {
+  return window['go']['main']['App']['GetResponseBody'](arg1, arg2);
 }
 
 export function GetSessionStorage(arg1) {
