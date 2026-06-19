@@ -8,6 +8,7 @@ import { ApplicationPanel } from './components/ApplicationPanel';
 import { NetworkPanel } from './components/NetworkPanel';
 import { PerformancePanel } from './components/PerformancePanel';
 import { ResponsivePanel } from './components/ResponsivePanel';
+import { CapturePanel } from './components/CapturePanel';
 
 function App() {
   const [connected, setConnected] = useState(false);
@@ -46,6 +47,8 @@ function App() {
           <PerformancePanel connected={connected} selectedTab={selectedTab} />
         ) : activePanel === 'responsive' ? (
           <ResponsivePanel connected={connected} selectedTab={selectedTab} />
+        ) : activePanel === 'capture' ? (
+          <CapturePanel connected={connected} selectedTab={selectedTab} />
         ) : activePanel === 'application' ? (
           <ApplicationPanel connected={connected} selectedTab={selectedTab} />
         ) : null}

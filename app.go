@@ -14,6 +14,7 @@ type App struct {
 	network     *cdp.NetworkService
 	performance *cdp.PerformanceService
 	emulation   *cdp.EmulationService
+	capture     *cdp.CaptureService
 }
 
 // NewApp creates a new App with its services.
@@ -26,6 +27,7 @@ func NewApp() *App {
 		network:     cdp.NewNetworkService(cs),
 		performance: cdp.NewPerformanceService(cs),
 		emulation:   cdp.NewEmulationService(cs),
+		capture:     cdp.NewCaptureService(cs),
 	}
 }
 
@@ -37,6 +39,7 @@ func (a *App) startup(ctx context.Context) {
 	a.network.SetAppContext(ctx)
 	a.performance.SetAppContext(ctx)
 	a.emulation.SetAppContext(ctx)
+	a.capture.SetAppContext(ctx)
 }
 
 // shutdown is called by Wails when the app is closing.
@@ -164,4 +167,16 @@ func (a *App) SetViewport(targetID string, width int, height int, dpr float64, m
 // ResetViewport clears all viewport overrides for the given tab.
 func (a *App) ResetViewport(targetID string) error {
 	return a.emulation.ResetViewport(targetID)
+}
+
+// --- Capture bindings ---
+
+// CaptureScreenshot captures a screenshot of the given tab.
+func (a *App) CaptureScreenshot(targetID string, format string, quality int, fullPage bool) (string, error) {
+	return a.capture.CaptureScreenshot(targetID, format, quality, fullPage)
+}
+
+// PrintToPDF generates a PDF of the given tab.
+func (a *App) PrintToPDF(targetID string, landscape bool, printBackground bool, scale float64) (string, error) {
+	return a.capture.PrintToPDF(targetID, landscape, printBackground, scale)
 }

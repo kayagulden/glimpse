@@ -9,6 +9,7 @@ const TABS = [
   { id: 'network', label: 'Network' },
   { id: 'performance', label: 'Performance' },
   { id: 'responsive', label: 'Responsive' },
+  { id: 'capture', label: 'Capture' },
   { id: 'application', label: 'Application' },
 ];
 
