@@ -46,8 +46,10 @@ export namespace cdp {
 	}
 	export class SearchResult {
 	    nodeId: number;
+	    highlightNodeId: number;
 	    nodeName: string;
 	    localName: string;
+	    nodeValue: string;
 	    selector: string;
 	
 	    static createFrom(source: any = {}) {
@@ -57,8 +59,10 @@ export namespace cdp {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.nodeId = source["nodeId"];
+	        this.highlightNodeId = source["highlightNodeId"];
 	        this.nodeName = source["nodeName"];
 	        this.localName = source["localName"];
+	        this.nodeValue = source["nodeValue"];
 	        this.selector = source["selector"];
 	    }
 	}

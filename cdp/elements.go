@@ -10,6 +10,7 @@ import (
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/cdproto/overlay"
 	"github.com/chromedp/cdproto/page"
+	runtimePkg "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -188,10 +189,12 @@ func (s *ElementsService) ClearHighlight(targetID string) error {
 
 // SearchResult represents a single DOM search match.
 type SearchResult struct {
-	NodeID    int    `json:"nodeId"`
-	NodeName  string `json:"nodeName"`
-	LocalName string `json:"localName"`
-	Selector  string `json:"selector"` // a short context string (tag + key attributes)
+	NodeID          int    `json:"nodeId"`
+	HighlightNodeID int    `json:"highlightNodeId"` // element to highlight (parent for text nodes)
+	NodeName        string `json:"nodeName"`
+	LocalName       string `json:"localName"`
+	NodeValue       string `json:"nodeValue"` // text content snippet for text/comment nodes
+	Selector        string `json:"selector"`
 }
 
 // SearchDOM searches the DOM tree using a query string.
@@ -219,10 +222,10 @@ func (s *ElementsService) SearchDOM(targetID string, query string) ([]SearchResu
 			return nil
 		}
 
-		// Cap results to avoid overwhelming the UI.
+		// Cap results.
 		limit := int64(count)
-		if limit > 100 {
-			limit = 100
+		if limit > 50 {
+			limit = 50
 		}
 
 		nodeIDs, err := dom.GetSearchResults(searchID, 0, limit).Do(ctx)
@@ -233,14 +236,37 @@ func (s *ElementsService) SearchDOM(targetID string, query string) ([]SearchResu
 		for _, nid := range nodeIDs {
 			node, err := dom.DescribeNode().WithNodeID(nid).WithDepth(0).Do(ctx)
 			if err != nil {
-				continue // skip nodes we can't describe
+				continue
 			}
+
 			sr := SearchResult{
-				NodeID:    int(nid),
-				NodeName:  node.NodeName,
-				LocalName: node.LocalName,
-				Selector:  buildSelector(node),
+				NodeID:          int(nid),
+				HighlightNodeID: int(nid), // default: highlight the node itself
+				NodeName:        node.NodeName,
+				LocalName:       node.LocalName,
+				Selector:        buildSelector(node),
 			}
+
+			// For text/comment nodes: get content snippet and resolve parent.
+			if node.NodeType == cdp.NodeTypeText || node.NodeType == cdp.NodeTypeComment {
+				val := node.NodeValue
+				if len(val) > 80 {
+					val = val[:80] + "…"
+				}
+				sr.NodeValue = val
+
+				// Resolve parent element for highlighting.
+				parentID := resolveParentElement(ctx, nid)
+				if parentID > 0 {
+					sr.HighlightNodeID = int(parentID)
+					// Also get parent info for better display.
+					parent, err := dom.DescribeNode().WithNodeID(parentID).WithDepth(0).Do(ctx)
+					if err == nil {
+						sr.Selector = buildSelector(parent)
+					}
+				}
+			}
+
 			results = append(results, sr)
 		}
 		return nil
@@ -249,6 +275,32 @@ func (s *ElementsService) SearchDOM(targetID string, query string) ([]SearchResu
 	}
 
 	return results, nil
+}
+
+// resolveParentElement finds the parent element's node ID for a given node.
+// Uses JavaScript via Runtime to traverse to parentElement.
+func resolveParentElement(ctx context.Context, nodeID cdp.NodeID) cdp.NodeID {
+	// Resolve node to a RemoteObject.
+	remoteObj, err := dom.ResolveNode().WithNodeID(nodeID).Do(ctx)
+	if err != nil || remoteObj == nil || remoteObj.ObjectID == "" {
+		return 0
+	}
+
+	// Call parentElement on the remote object.
+	parentObj, _, err := runtimePkg.CallFunctionOn(`function() { return this.parentElement; }`).
+		WithObjectID(remoteObj.ObjectID).
+		Do(ctx)
+	if err != nil || parentObj == nil || parentObj.ObjectID == "" {
+		return 0
+	}
+
+	// Convert back to a nodeID.
+	parentNodeID, err := dom.RequestNode(parentObj.ObjectID).Do(ctx)
+	if err != nil {
+		return 0
+	}
+
+	return parentNodeID
 }
 
 // buildSelector creates a short readable selector from a node (e.g. "div.container#main").

@@ -5,8 +5,10 @@ import { DOMTreeNode, type DOMNodeData } from './DOMTreeNode';
 
 interface SearchResult {
   nodeId: number;
+  highlightNodeId: number;
   nodeName: string;
   localName: string;
+  nodeValue: string;
   selector: string;
 }
 
@@ -102,7 +104,7 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
         // Highlight first result
         if (results && results.length > 0) {
           const first = results[0] as unknown as SearchResult;
-          HighlightNode(selectedTab, first.nodeId).catch(() => {});
+          HighlightNode(selectedTab, first.highlightNodeId).catch(() => {});
         }
       } catch {
         setSearchResults([]);
@@ -119,7 +121,7 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
     if (searchResults.length === 0) return;
     const next = (searchIndex + delta + searchResults.length) % searchResults.length;
     setSearchIndex(next);
-    HighlightNode(selectedTab, searchResults[next].nodeId).catch(() => {});
+    HighlightNode(selectedTab, searchResults[next].highlightNodeId).catch(() => {});
   }, [searchResults, searchIndex, selectedTab]);
 
   const handleExpand = useCallback(async (nodeId: number): Promise<DOMNodeData[]> => {
@@ -279,16 +281,18 @@ export function ElementsPanel({ connected, selectedTab }: ElementsPanelProps) {
               key={`${result.nodeId}-${i}`}
               onClick={() => {
                 setSearchIndex(i);
-                HighlightNode(selectedTab, result.nodeId).catch(() => {});
+                HighlightNode(selectedTab, result.highlightNodeId).catch(() => {});
               }}
-              onMouseEnter={() => HighlightNode(selectedTab, result.nodeId).catch(() => {})}
+              onMouseEnter={() => HighlightNode(selectedTab, result.highlightNodeId).catch(() => {})}
               onMouseLeave={() => ClearHighlight(selectedTab).catch(() => {})}
               className={`w-full text-left px-3 py-1 text-[11px] font-mono flex items-center gap-2
                          hover:bg-white/[0.04] transition-colors
                          ${i === searchIndex ? 'bg-accent/10 text-accent' : 'text-white/40'}`}
             >
-              <span className="text-[#E06C75]">{result.localName || result.nodeName}</span>
-              <span className="text-white/20 truncate">{result.selector}</span>
+              <span className="text-[#E06C75] shrink-0">{result.selector || result.localName || result.nodeName}</span>
+              {result.nodeValue && (
+                <span className="text-white/25 truncate">"{result.nodeValue}"</span>
+              )}
             </button>
           ))}
         </div>
