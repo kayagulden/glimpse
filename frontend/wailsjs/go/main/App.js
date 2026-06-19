@@ -10,6 +10,10 @@ export function ClearNetworkCache() {
   return window['go']['main']['App']['ClearNetworkCache']();
 }
 
+export function CollectWebVitals(arg1) {
+  return window['go']['main']['App']['CollectWebVitals'](arg1);
+}
+
 export function ConnectToChrome(arg1) {
   return window['go']['main']['App']['ConnectToChrome'](arg1);
 }
@@ -20,6 +24,10 @@ export function DisconnectFromChrome() {
 
 export function EnableNetwork(arg1) {
   return window['go']['main']['App']['EnableNetwork'](arg1);
+}
+
+export function EnablePerformance(arg1) {
+  return window['go']['main']['App']['EnablePerformance'](arg1);
 }
 
 export function GetCachedResponseBody(arg1) {

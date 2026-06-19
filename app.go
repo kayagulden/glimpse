@@ -7,21 +7,23 @@ import (
 
 // App is the main application struct, bound to the Wails frontend.
 type App struct {
-	ctx      context.Context
-	console  *cdp.ConsoleService
-	elements *cdp.ElementsService
-	storage  *cdp.StorageService
-	network  *cdp.NetworkService
+	ctx         context.Context
+	console     *cdp.ConsoleService
+	elements    *cdp.ElementsService
+	storage     *cdp.StorageService
+	network     *cdp.NetworkService
+	performance *cdp.PerformanceService
 }
 
 // NewApp creates a new App with its services.
 func NewApp() *App {
 	cs := cdp.NewConsoleService()
 	return &App{
-		console:  cs,
-		elements: cdp.NewElementsService(cs),
-		storage:  cdp.NewStorageService(cs),
-		network:  cdp.NewNetworkService(cs),
+		console:     cs,
+		elements:    cdp.NewElementsService(cs),
+		storage:     cdp.NewStorageService(cs),
+		network:     cdp.NewNetworkService(cs),
+		performance: cdp.NewPerformanceService(cs),
 	}
 }
 
@@ -31,6 +33,7 @@ func (a *App) startup(ctx context.Context) {
 	a.console.SetAppContext(ctx)
 	a.elements.SetAppContext(ctx)
 	a.network.SetAppContext(ctx)
+	a.performance.SetAppContext(ctx)
 }
 
 // shutdown is called by Wails when the app is closing.
@@ -134,4 +137,16 @@ func (a *App) SaveResponseBody(requestID string, suggestedName string) (string, 
 // ClearNetworkCache clears all cached response bodies.
 func (a *App) ClearNetworkCache() {
 	a.network.ClearBodyCache()
+}
+
+// --- Performance bindings ---
+
+// EnablePerformance enables performance metrics polling for the given tab.
+func (a *App) EnablePerformance(targetID string) error {
+	return a.performance.EnablePerformance(targetID)
+}
+
+// CollectWebVitals collects Web Vitals from the given tab via JS injection.
+func (a *App) CollectWebVitals(targetID string) (*cdp.WebVitals, error) {
+	return a.performance.CollectWebVitals(targetID)
 }

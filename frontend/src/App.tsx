@@ -6,6 +6,7 @@ import { ConsolePanel } from './components/ConsolePanel';
 import { ElementsPanel } from './components/ElementsPanel';
 import { ApplicationPanel } from './components/ApplicationPanel';
 import { NetworkPanel } from './components/NetworkPanel';
+import { PerformancePanel } from './components/PerformancePanel';
 
 function App() {
   const [connected, setConnected] = useState(false);
@@ -40,6 +41,8 @@ function App() {
           <ElementsPanel connected={connected} selectedTab={selectedTab} />
         ) : activePanel === 'network' ? (
           <NetworkPanel connected={connected} selectedTab={selectedTab} />
+        ) : activePanel === 'performance' ? (
+          <PerformancePanel connected={connected} selectedTab={selectedTab} />
         ) : activePanel === 'application' ? (
           <ApplicationPanel connected={connected} selectedTab={selectedTab} />
         ) : null}

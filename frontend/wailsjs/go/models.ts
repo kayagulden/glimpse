@@ -124,6 +124,28 @@ export namespace cdp {
 	        this.url = source["url"];
 	    }
 	}
+	export class WebVitals {
+	    fcp: number;
+	    lcp: number;
+	    cls: number;
+	    ttfb: number;
+	    domContentLoaded: number;
+	    load: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WebVitals(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fcp = source["fcp"];
+	        this.lcp = source["lcp"];
+	        this.cls = source["cls"];
+	        this.ttfb = source["ttfb"];
+	        this.domContentLoaded = source["domContentLoaded"];
+	        this.load = source["load"];
+	    }
+	}
 
 }
 

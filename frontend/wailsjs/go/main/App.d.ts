@@ -6,11 +6,15 @@ export function ClearHighlight(arg1:string):Promise<void>;
 
 export function ClearNetworkCache():Promise<void>;
 
+export function CollectWebVitals(arg1:string):Promise<cdp.WebVitals>;
+
 export function ConnectToChrome(arg1:string):Promise<void>;
 
 export function DisconnectFromChrome():Promise<void>;
 
 export function EnableNetwork(arg1:string):Promise<void>;
+
+export function EnablePerformance(arg1:string):Promise<void>;
 
 export function GetCachedResponseBody(arg1:string):Promise<string>;
 
