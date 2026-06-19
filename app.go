@@ -13,6 +13,7 @@ type App struct {
 	storage     *cdp.StorageService
 	network     *cdp.NetworkService
 	performance *cdp.PerformanceService
+	emulation   *cdp.EmulationService
 }
 
 // NewApp creates a new App with its services.
@@ -24,6 +25,7 @@ func NewApp() *App {
 		storage:     cdp.NewStorageService(cs),
 		network:     cdp.NewNetworkService(cs),
 		performance: cdp.NewPerformanceService(cs),
+		emulation:   cdp.NewEmulationService(cs),
 	}
 }
 
@@ -34,6 +36,7 @@ func (a *App) startup(ctx context.Context) {
 	a.elements.SetAppContext(ctx)
 	a.network.SetAppContext(ctx)
 	a.performance.SetAppContext(ctx)
+	a.emulation.SetAppContext(ctx)
 }
 
 // shutdown is called by Wails when the app is closing.
@@ -149,4 +152,16 @@ func (a *App) EnablePerformance(targetID string) error {
 // CollectWebVitals collects Web Vitals from the given tab via JS injection.
 func (a *App) CollectWebVitals(targetID string) (*cdp.WebVitals, error) {
 	return a.performance.CollectWebVitals(targetID)
+}
+
+// --- Emulation bindings ---
+
+// SetViewport overrides the device viewport for the given tab.
+func (a *App) SetViewport(targetID string, width int, height int, dpr float64, mobile bool, landscape bool) error {
+	return a.emulation.SetViewport(targetID, width, height, dpr, mobile, landscape)
+}
+
+// ResetViewport clears all viewport overrides for the given tab.
+func (a *App) ResetViewport(targetID string) error {
+	return a.emulation.ResetViewport(targetID)
 }

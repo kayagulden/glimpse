@@ -36,8 +36,12 @@ export function HighlightNode(arg1:string,arg2:number):Promise<void>;
 
 export function IsConnected():Promise<boolean>;
 
+export function ResetViewport(arg1:string):Promise<void>;
+
 export function RunJS(arg1:string):Promise<void>;
 
 export function SaveResponseBody(arg1:string,arg2:string):Promise<string>;
 
 export function SearchDOM(arg1:string,arg2:string):Promise<Array<cdp.SearchResult>>;
+
+export function SetViewport(arg1:string,arg2:number,arg3:number,arg4:number,arg5:boolean,arg6:boolean):Promise<void>;

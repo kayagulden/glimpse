@@ -70,6 +70,10 @@ export function IsConnected() {
   return window['go']['main']['App']['IsConnected']();
 }
 
+export function ResetViewport(arg1) {
+  return window['go']['main']['App']['ResetViewport'](arg1);
+}
+
 export function RunJS(arg1) {
   return window['go']['main']['App']['RunJS'](arg1);
 }
@@ -80,4 +84,8 @@ export function SaveResponseBody(arg1, arg2) {
 
 export function SearchDOM(arg1, arg2) {
   return window['go']['main']['App']['SearchDOM'](arg1, arg2);
+}
+
+export function SetViewport(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['SetViewport'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
