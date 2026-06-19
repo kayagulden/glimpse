@@ -97,6 +97,33 @@ func (s *AIService) DebugAnalysis(targetID string, apiKey string, model string) 
 	return client.Generate(debugSystemPrompt, prompt, model)
 }
 
+const singleErrorPrompt = `Sen deneyimli bir web geliştirme uzmanısın. Sana bir web sayfasından alınan TEK bir console hatası/uyarısı veriyorum.
+
+Bu hata için şu yapıda kısa ve öz analiz yap:
+
+### 🔴 Sorun
+Hatanın ne olduğunu açıkla.
+
+### 🔍 Kök Neden
+Bu hatanın olası nedeni.
+
+### ✅ Çözüm
+Spesifik çözüm önerisi (varsa kod örneğiyle).
+
+Yanıtını Türkçe ve Markdown formatında ver. Kısa ve net ol.`
+
+// AnalyzeSingleError analyzes a single console error/warning using Gemini.
+func (s *AIService) AnalyzeSingleError(errorMessage string, apiKey string, model string) (string, error) {
+	if apiKey == "" {
+		return "", fmt.Errorf("Gemini API key gerekli")
+	}
+
+	prompt := fmt.Sprintf("Aşağıdaki console hatasını analiz et:\n\n```\n%s\n```", errorMessage)
+
+	client := NewGeminiClient(apiKey)
+	return client.Generate(singleErrorPrompt, prompt, model)
+}
+
 // ── Site Audit ──
 
 const auditSystemPrompt = `Sen kapsamlı bir web sitesi denetim uzmanısın. Sana bir web sayfasından toplanan verileri vereceğim.

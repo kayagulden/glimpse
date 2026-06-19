@@ -2,7 +2,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"glimpse/cdp"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App is the main application struct, bound to the Wails frontend.
@@ -215,8 +225,178 @@ func (a *App) DebugAnalysis(targetID string) (string, error) {
 	return a.ai.DebugAnalysis(targetID, cfg.GeminiAPIKey, cfg.GeminiModel)
 }
 
-// SiteAudit runs a comprehensive AI-powered site audit on the given tab.
-func (a *App) SiteAudit(targetID string) (string, error) {
+// AnalyzeSingleError analyzes a single console error using AI.
+func (a *App) AnalyzeSingleError(errorMessage string) (string, error) {
 	cfg, _ := cdp.LoadConfig()
-	return a.ai.SiteAudit(targetID, cfg.GeminiAPIKey, cfg.GeminiModel)
+	if cfg.GeminiAPIKey == "" {
+		return "", fmt.Errorf("Gemini API key gerekli")
+	}
+	return a.ai.AnalyzeSingleError(errorMessage, cfg.GeminiAPIKey, cfg.GeminiModel)
 }
+
+// SaveReport saves an AI report to disk using native file dialog.
+func (a *App) SaveReport(content string, defaultName string) (string, error) {
+	path, err := wailsRuntime.SaveFileDialog(a.ctx, wailsRuntime.SaveDialogOptions{
+		DefaultFilename: defaultName,
+		Title:           "Raporu Kaydet",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "Markdown (*.md)", Pattern: "*.md"},
+			{DisplayName: "Text (*.txt)", Pattern: "*.txt"},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("dialog: %w", err)
+	}
+	if path == "" {
+		return "", fmt.Errorf("iptal edildi")
+	}
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("yazma hatası: %w", err)
+	}
+	return path, nil
+}
+
+// ExportReportPDF converts a markdown report to PDF using the connected browser.
+func (a *App) ExportReportPDF(content string, defaultName string) (string, error) {
+	browserCtx := a.console.GetBrowserContext()
+	if browserCtx == nil {
+		return "", fmt.Errorf("Chrome bağlı değil")
+	}
+
+	styledHTML := cdp.MarkdownToStyledHTML(content)
+
+	// Write to temp file
+	tmpFile, err := os.CreateTemp("", "glimpse-report-*.html")
+	if err != nil {
+		return "", fmt.Errorf("temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := tmpFile.WriteString(styledHTML); err != nil {
+		tmpFile.Close()
+		return "", fmt.Errorf("write temp: %w", err)
+	}
+	tmpFile.Close()
+
+	// Create a new tab, navigate to temp file, print to PDF
+	tabCtx, tabCancel := chromedp.NewContext(browserCtx)
+	defer tabCancel()
+
+	var pdfData []byte
+	err = chromedp.Run(tabCtx,
+		chromedp.Navigate("file://"+tmpPath),
+		chromedp.Sleep(500*time.Millisecond),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			var pdfErr error
+			pdfData, _, pdfErr = page.PrintToPDF().
+				WithPrintBackground(true).
+				WithMarginTop(1.5).
+				WithMarginBottom(1.5).
+				WithMarginLeft(1).
+				WithMarginRight(1).
+				Do(ctx)
+			return pdfErr
+		}),
+	)
+	if err != nil {
+		return "", fmt.Errorf("PDF üretimi: %w", err)
+	}
+
+	// Save via dialog
+	path, err := wailsRuntime.SaveFileDialog(a.ctx, wailsRuntime.SaveDialogOptions{
+		DefaultFilename: defaultName,
+		Title:           "PDF Raporu Kaydet",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "PDF (*.pdf)", Pattern: "*.pdf"},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("dialog: %w", err)
+	}
+	if path == "" {
+		return "", fmt.Errorf("iptal edildi")
+	}
+
+	if err := os.WriteFile(path, pdfData, 0644); err != nil {
+		return "", fmt.Errorf("yazma hatası: %w", err)
+	}
+	return path, nil
+}
+
+// EmailReport generates a PDF from the report and opens the default mail client with it attached.
+func (a *App) EmailReport(content string, subject string) error {
+	browserCtx := a.console.GetBrowserContext()
+	if browserCtx == nil {
+		return fmt.Errorf("Chrome bağlı değil")
+	}
+
+	// 1. Convert markdown to styled HTML
+	styledHTML := cdp.MarkdownToStyledHTML(content)
+
+	// 2. Write HTML to temp file
+	tmpHTML, err := os.CreateTemp("", "glimpse-email-*.html")
+	if err != nil {
+		return fmt.Errorf("temp file: %w", err)
+	}
+	tmpHTMLPath := tmpHTML.Name()
+	defer os.Remove(tmpHTMLPath)
+	tmpHTML.WriteString(styledHTML)
+	tmpHTML.Close()
+
+	// 3. Print to PDF via Chrome
+	tabCtx, tabCancel := chromedp.NewContext(browserCtx)
+	defer tabCancel()
+
+	var pdfData []byte
+	err = chromedp.Run(tabCtx,
+		chromedp.Navigate("file://"+tmpHTMLPath),
+		chromedp.Sleep(500*time.Millisecond),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			var pdfErr error
+			pdfData, _, pdfErr = page.PrintToPDF().
+				WithPrintBackground(true).
+				WithMarginTop(1.5).
+				WithMarginBottom(1.5).
+				WithMarginLeft(1).
+				WithMarginRight(1).
+				Do(ctx)
+			return pdfErr
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("PDF üretimi: %w", err)
+	}
+
+	// 4. Save PDF to temp directory
+	pdfPath := filepath.Join(os.TempDir(), "Glimpse-Rapor.pdf")
+	if err := os.WriteFile(pdfPath, pdfData, 0644); err != nil {
+		return fmt.Errorf("PDF yazma: %w", err)
+	}
+
+	// 5. Open mail client with PDF attachment via AppleScript
+	script := fmt.Sprintf(`
+		tell application "Mail"
+			set newMessage to make new outgoing message with properties {subject:"%s", visible:true}
+			tell newMessage
+				make new attachment with properties {file name:POSIX file "%s"} at after the last paragraph
+			end tell
+			activate
+		end tell
+	`, escapeAppleScript(subject), pdfPath)
+
+	cmd := exec.Command("osascript", "-e", script)
+	if err := cmd.Run(); err != nil {
+		// Fallback: open PDF file directly
+		wailsRuntime.BrowserOpenURL(a.ctx, "file://"+pdfPath)
+	}
+	return nil
+}
+
+// escapeAppleScript escapes double quotes and backslashes for AppleScript strings.
+func escapeAppleScript(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
+}
+

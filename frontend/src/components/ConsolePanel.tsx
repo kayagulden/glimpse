@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
-import { RunJS } from '../../wailsjs/go/main/App';
+import { RunJS, AnalyzeSingleError } from '../../wailsjs/go/main/App';
 
 interface ConsoleEntry {
   type: string;
@@ -33,6 +33,10 @@ export function ConsolePanel({ connected, selectedTab }: ConsolePanelProps) {
   const [filter, setFilter] = useState('all');
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+
+  // AI analysis state
+  const [analyzingIdx, setAnalyzingIdx] = useState<number | null>(null);
+  const [aiResults, setAiResults] = useState<Record<number, string>>({});
 
   // Subscribe to console:log events from Go backend
   useEffect(() => {
@@ -67,7 +71,28 @@ export function ConsolePanel({ connected, selectedTab }: ConsolePanelProps) {
 
   function clearLogs() {
     setLogs([]);
+    setAiResults({});
   }
+
+  const analyzeError = useCallback(async (idx: number, message: string) => {
+    setAnalyzingIdx(idx);
+    try {
+      const result = await AnalyzeSingleError(message);
+      setAiResults(prev => ({ ...prev, [idx]: result }));
+    } catch (e) {
+      setAiResults(prev => ({ ...prev, [idx]: `Analiz hatası: ${e}` }));
+    } finally {
+      setAnalyzingIdx(null);
+    }
+  }, []);
+
+  const dismissResult = useCallback((idx: number) => {
+    setAiResults(prev => {
+      const next = { ...prev };
+      delete next[idx];
+      return next;
+    });
+  }, []);
 
   // Filter logs by tab (target ID) first, then by log type
   const tabLogs = selectedTab === 'all' ? logs : logs.filter((l) => l.targetId === selectedTab);
@@ -141,7 +166,16 @@ export function ConsolePanel({ connected, selectedTab }: ConsolePanelProps) {
           <EmptyState connected={connected} />
         ) : (
           filteredLogs.map((entry, i) => (
-            <LogRow key={i} entry={entry} formatTime={formatTime} />
+            <LogRow
+              key={i}
+              idx={i}
+              entry={entry}
+              formatTime={formatTime}
+              onAnalyze={analyzeError}
+              analyzing={analyzingIdx === i}
+              aiResult={aiResults[i]}
+              onDismiss={dismissResult}
+            />
           ))
         )}
       </div>
@@ -177,29 +211,93 @@ function FilterButton({ label, count, active, onClick, accent }: {
   );
 }
 
-function LogRow({ entry, formatTime }: { entry: ConsoleEntry; formatTime: (ms: number) => string }) {
+function LogRow({ idx, entry, formatTime, onAnalyze, analyzing, aiResult, onDismiss }: {
+  idx: number;
+  entry: ConsoleEntry;
+  formatTime: (ms: number) => string;
+  onAnalyze: (idx: number, message: string) => void;
+  analyzing: boolean;
+  aiResult?: string;
+  onDismiss: (idx: number) => void;
+}) {
   const style = LOG_STYLES[entry.type] || DEFAULT_STYLE;
+  const isAnalyzable = entry.type === 'error' || entry.type === 'warning';
 
   return (
-    <div className={`flex items-start gap-2 px-3 py-[5px] border-b border-white/[0.03]
-                     hover:bg-white/[0.02] transition-colors group ${style.bg}`}>
-      {/* Type icon */}
-      <span className={`text-[10px] font-mono w-4 text-center mt-[3px] shrink-0 ${style.badge} rounded px-0.5`}>
-        {style.icon}
-      </span>
+    <div>
+      <div className={`flex items-start gap-2 px-3 py-[5px] border-b border-white/[0.03]
+                       hover:bg-white/[0.02] transition-colors group ${style.bg}`}>
+        {/* Type icon */}
+        <span className={`text-[10px] font-mono w-4 text-center mt-[3px] shrink-0 ${style.badge} rounded px-0.5`}>
+          {style.icon}
+        </span>
 
-      {/* Timestamp */}
-      <span className="text-[10px] font-mono text-white/15 mt-[3px] shrink-0 w-20
-                        group-hover:text-white/25 transition-colors">
-        {formatTime(entry.timestamp)}
-      </span>
+        {/* Timestamp */}
+        <span className="text-[10px] font-mono text-white/15 mt-[3px] shrink-0 w-20
+                          group-hover:text-white/25 transition-colors">
+          {formatTime(entry.timestamp)}
+        </span>
 
-      {/* Message */}
-      <span className={`text-log font-mono whitespace-pre-wrap break-all flex-1 ${style.text}`}>
-        {entry.message}
-      </span>
+        {/* Message */}
+        <span className={`text-log font-mono whitespace-pre-wrap break-all flex-1 ${style.text}`}>
+          {entry.message}
+        </span>
+
+        {/* AI Analyze button — only for errors and warnings */}
+        {isAnalyzable && (
+          <button
+            onClick={() => onAnalyze(idx, entry.message)}
+            disabled={analyzing}
+            className="opacity-0 group-hover:opacity-100 shrink-0 px-1.5 py-0.5 mt-[1px]
+                       text-[9px] rounded border transition-all
+                       text-accent/50 border-accent/20 bg-accent/5
+                       hover:bg-accent/15 hover:text-accent/80
+                       disabled:opacity-40"
+            title="AI ile analiz et"
+          >
+            {analyzing ? (
+              <span className="inline-block w-2.5 h-2.5 border border-accent/30 border-t-accent rounded-full animate-spin" />
+            ) : '🔍'}
+          </button>
+        )}
+      </div>
+
+      {/* AI Result — inline below the error */}
+      {aiResult && (
+        <div className="mx-3 my-1.5 p-3 bg-surface-1/80 rounded-lg border border-accent/15 text-[10px]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[9px] text-accent/50 uppercase tracking-wider font-semibold">AI Analiz</span>
+            <button onClick={() => onDismiss(idx)}
+              className="text-[9px] text-white/20 hover:text-white/40 transition-colors">✕ Kapat</button>
+          </div>
+          <div className="text-white/55 leading-relaxed
+                          prose prose-invert prose-xs max-w-none
+                          [&_h3]:text-white/70 [&_h3]:text-[11px] [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1
+                          [&_strong]:text-white/65
+                          [&_code]:bg-surface-0 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent/70
+                          [&_pre]:bg-surface-0 [&_pre]:rounded [&_pre]:p-2 [&_pre]:overflow-x-auto
+                          [&_ul]:list-disc [&_ul]:pl-3 [&_li]:mb-0.5"
+            dangerouslySetInnerHTML={{ __html: markdownToHtml(aiResult) }}
+          />
+        </div>
+      )}
     </div>
   );
+}
+
+function markdownToHtml(md: string): string {
+  return md
+    .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) =>
+      `<pre><code>${code.trim().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>`)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br/>');
 }
 
 function EmptyState({ connected }: { connected: boolean }) {

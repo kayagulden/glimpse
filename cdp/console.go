@@ -56,6 +56,13 @@ func (s *ConsoleService) SetAppContext(ctx context.Context) {
 	s.appCtx = ctx
 }
 
+// GetBrowserContext returns the browser-level chromedp context (for creating new tabs).
+func (s *ConsoleService) GetBrowserContext() context.Context {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.browserCtx
+}
+
 // Connect attaches to a running Chrome instance.
 // It attaches to all existing page tabs and starts polling for new ones.
 func (s *ConsoleService) Connect(debugURL string) error {

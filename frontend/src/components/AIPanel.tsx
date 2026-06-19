@@ -1,11 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
-import { GetConfig, SaveGeminiKey, SaveGeminiModel, DebugAnalysis, SiteAudit } from '../../wailsjs/go/main/App';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { GetConfig, SaveGeminiKey, SaveGeminiModel, DebugAnalysis, SaveReport, ExportReportPDF, EmailReport } from '../../wailsjs/go/main/App';
 
 const MODELS = [
-  { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Hızlı)' },
-  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (En Güçlü)' },
   { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-  { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Detaylı)' },
+  { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (Hızlı)' },
+  { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
 ];
 
 interface AIPanelProps {
@@ -17,15 +19,11 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
   const [apiKey, setApiKey] = useState('');
   const [keySaved, setKeySaved] = useState(false);
   const [keyInput, setKeyInput] = useState('');
-  const [model, setModel] = useState('gemini-2.0-flash-lite');
+  const [model, setModel] = useState('gemini-2.5-flash');
 
   // Debug state
   const [debugResult, setDebugResult] = useState('');
   const [debugLoading, setDebugLoading] = useState(false);
-
-  // Audit state
-  const [auditResult, setAuditResult] = useState('');
-  const [auditLoading, setAuditLoading] = useState(false);
 
   const [error, setError] = useState('');
 
@@ -63,6 +61,7 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
     try {
       const result = await DebugAnalysis(selectedTab);
       setDebugResult(result);
+      setTimeout(() => debugRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     } catch (e) {
       setError(`Hata analizi başarısız: ${e}`);
     } finally {
@@ -70,25 +69,36 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
     }
   }, [apiKey, selectedTab]);
 
-  const runAudit = useCallback(async () => {
-    if (!apiKey || selectedTab === 'all') return;
-    setAuditLoading(true);
-    setAuditResult('');
-    setError('');
+  const debugRef = useRef<HTMLDivElement>(null);
+
+  const saveReport = useCallback(async (content: string, filename: string) => {
     try {
-      const result = await SiteAudit(selectedTab);
-      setAuditResult(result);
-    } catch (e) {
-      setError(`Site denetimi başarısız: ${e}`);
-    } finally {
-      setAuditLoading(false);
+      await SaveReport(content, filename);
+    } catch {
+      // user cancelled
     }
-  }, [apiKey, selectedTab]);
+  }, []);
+
+  const exportPDF = useCallback(async (content: string, filename: string) => {
+    try {
+      await ExportReportPDF(content, filename);
+    } catch (e) {
+      setError(`PDF hatası: ${e}`);
+    }
+  }, []);
+
+  const emailReport = useCallback(async (content: string, subject: string) => {
+    try {
+      await EmailReport(content, subject);
+    } catch (e) {
+      setError(`E-posta hatası: ${e}`);
+    }
+  }, []);
 
   if (!connected) {
     return (
       <div className="flex-1 flex items-center justify-center text-white/15 text-sm">
-        Connect to Chrome to use AI analysis
+        AI analiz için Chrome'a bağlanın
       </div>
     );
   }
@@ -96,13 +106,13 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
   if (selectedTab === 'all') {
     return (
       <div className="flex-1 flex items-center justify-center text-white/15 text-sm">
-        Select a specific tab for AI analysis
+        AI analiz için bir sekme seçin
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0 }}>
       {/* Settings Bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-surface-1/50 shrink-0 flex-wrap">
         <span className="text-[10px] text-white/30 uppercase tracking-wider">API Key</span>
@@ -146,22 +156,23 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
         </select>
       </div>
 
-      <div className="flex-1 overflow-auto console-scroll p-4 space-y-5">
-        {/* Error display */}
-        {error && (
-          <div className="text-[10px] font-mono px-3 py-2 rounded border
-                          bg-red-400/5 border-red-400/20 text-red-400/70">
-            {error}
-          </div>
-        )}
+      {/* Scrollable content */}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' }} className="console-scroll p-4">
 
-        {/* ── Debug Assistant ── */}
-        <section>
-          <h3 className="text-[11px] text-white/30 uppercase tracking-wider font-semibold mb-3">
-            🔍 Hata Analizi (Debug Assistant)
-          </h3>
+          {/* Error display */}
+          {error && (
+            <div className="text-[10px] font-mono px-3 py-2 rounded border mb-4
+                            bg-red-400/5 border-red-400/20 text-red-400/70">
+              {error}
+            </div>
+          )}
 
+          {/* ── Debug Assistant ── */}
           <div className="bg-surface-1 rounded-lg border border-border/40 p-4 space-y-3">
+            <h3 className="text-[11px] text-white/30 uppercase tracking-wider font-semibold">
+              🔍 Hata Analizi (Debug Assistant)
+            </h3>
             <p className="text-[10px] text-white/25 leading-relaxed">
               Console hataları, başarısız ağ istekleri ve performans sorunlarını analiz eder.
               Her hata için kök neden ve çözüm önerisi sunar.
@@ -183,64 +194,53 @@ export function AIPanel({ connected, selectedTab }: AIPanelProps) {
             </button>
 
             {debugResult && (
-              <div className="mt-3 p-4 bg-surface-0 rounded-lg border border-border/30 
-                              text-[11px] text-white/60 leading-relaxed
-                              prose prose-invert prose-sm max-w-none
-                              [&_h3]:text-white/70 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2
-                              [&_h2]:text-white/80 [&_h2]:text-[13px] [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
-                              [&_strong]:text-white/70
-                              [&_code]:bg-surface-1 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent/80
-                              [&_pre]:bg-surface-1 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto
-                              [&_ul]:list-disc [&_ul]:pl-4 [&_li]:mb-1"
-                dangerouslySetInnerHTML={{ __html: markdownToHtml(debugResult) }}
-              />
+              <div ref={debugRef}>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-[10px] text-white/25">Analiz Sonucu</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => saveReport(debugResult, `debug-report-${new Date().toISOString().slice(0,10)}.md`)}
+                      className="px-2 py-1 text-[10px] rounded border transition-colors
+                                 text-white/40 border-border/30 hover:bg-surface-1 hover:text-white/60"
+                      title="Markdown olarak kaydet"
+                    >
+                      💾 MD
+                    </button>
+                    <button
+                      onClick={() => exportPDF(debugResult, `debug-report-${new Date().toISOString().slice(0,10)}.pdf`)}
+                      className="px-2 py-1 text-[10px] rounded border transition-colors
+                                 text-white/40 border-border/30 hover:bg-surface-1 hover:text-white/60"
+                      title="PDF olarak kaydet"
+                    >
+                      📄 PDF
+                    </button>
+                    <button
+                      onClick={() => emailReport(debugResult, 'Glimpse - Hata Analizi Raporu')}
+                      className="px-2 py-1 text-[10px] rounded border transition-colors
+                                 text-white/40 border-border/30 hover:bg-surface-1 hover:text-white/60"
+                      title="E-posta ile gönder"
+                    >
+                      📧
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 p-4 bg-surface-0 rounded-lg border border-border/30 
+                                text-[11px] text-white/60 leading-relaxed
+                                prose prose-invert prose-sm max-w-none
+                                [&_h3]:text-white/70 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2
+                                [&_h2]:text-white/80 [&_h2]:text-[13px] [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
+                                [&_strong]:text-white/70
+                                [&_code]:bg-surface-1 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent/80
+                                [&_pre]:bg-surface-1 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto
+                                [&_ul]:list-disc [&_ul]:pl-4 [&_li]:mb-1"
+                  dangerouslySetInnerHTML={{ __html: markdownToHtml(debugResult) }}
+                />
+              </div>
             )}
           </div>
-        </section>
 
-        {/* ── Site Audit ── */}
-        <section>
-          <h3 className="text-[11px] text-white/30 uppercase tracking-wider font-semibold mb-3">
-            📊 Site Denetimi (Site Audit)
-          </h3>
-
-          <div className="bg-surface-1 rounded-lg border border-border/40 p-4 space-y-3">
-            <p className="text-[10px] text-white/25 leading-relaxed">
-              SEO, performans, erişilebilirlik, UX, güvenlik ve en iyi uygulamalar başlıklarında
-              kapsamlı bir değerlendirme yapar. Her başlık için 0-100 puan verir.
-            </p>
-
-            <button
-              onClick={runAudit}
-              disabled={auditLoading || !apiKey}
-              className="w-full py-2.5 text-[11px] font-semibold rounded-md transition-all
-                         bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/25
-                         disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              {auditLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-3 h-3 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
-                  Denetleniyor...
-                </span>
-              ) : '📊 Site Denetimi Başlat'}
-            </button>
-
-            {auditResult && (
-              <div className="mt-3 p-4 bg-surface-0 rounded-lg border border-border/30
-                              text-[11px] text-white/60 leading-relaxed
-                              prose prose-invert prose-sm max-w-none
-                              [&_h2]:text-white/80 [&_h2]:text-[13px] [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2
-                              [&_h3]:text-white/70 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1
-                              [&_strong]:text-white/70
-                              [&_code]:bg-surface-1 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-accent/80
-                              [&_pre]:bg-surface-1 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto
-                              [&_ul]:list-disc [&_ul]:pl-4 [&_li]:mb-1"
-                dangerouslySetInnerHTML={{ __html: markdownToHtml(auditResult) }}
-              />
-            )}
-          </div>
-        </section>
-      </div>
+        </div>{/* end absolute scroll */}
+      </div>{/* end relative wrapper */}
     </div>
   );
 }
