@@ -80,6 +80,40 @@ function formatDuration(seconds: number): string {
   return `${(seconds * 1000).toFixed(1)} ms`;
 }
 
+// Turkish descriptions for all metrics
+const HINTS: Record<string, string> = {
+  fcp: 'İlk İçerikli Boyama — tarayıcının ekrana ilk metin veya görseli çizdiği an.',
+  lcp: 'En Büyük İçerikli Boyama — görünen alandaki en büyük içerik öğesinin yüklenme süresi.',
+  cls: 'Kümülatif Düzen Kayması — sayfa yüklenirken öğelerin beklenmedik şekilde yer değiştirme miktarı. 0\'a yakın olması idealdir.',
+  ttfb: 'İlk Bayt Süresi — tarayıcının sunucudan ilk yanıt baytını alana kadar geçen süre.',
+  domContentLoaded: 'DOM\'un tamamen ayrıştırılıp hazır olduğu an (resimler/stiller hariç).',
+  load: 'Sayfanın tüm kaynaklar dahil tamamen yüklendiği an.',
+  jsHeap: 'JavaScript motorunun kullandığı bellek miktarı.',
+  nodes: 'Sayfadaki toplam DOM düğüm sayısı. Çok fazla düğüm performansı düşürür.',
+  listeners: 'Kayıtlı JavaScript olay dinleyicisi sayısı (click, scroll vb.).',
+  documents: 'Sayfadaki doküman sayısı (ana sayfa + iframe\'ler).',
+  frames: 'Sayfadaki frame/iframe sayısı.',
+  layouts: 'Tarayıcının sayfa düzenini yeniden hesaplama sayısı ve toplam süresi.',
+  styleRecalcs: 'CSS stillerinin yeniden hesaplanma sayısı ve toplam süresi.',
+  scriptExecution: 'JavaScript kodunun toplam çalışma süresi.',
+  taskDuration: 'Tarayıcının tüm görevlere (JS, layout, stil vb.) harcadığı toplam süre.',
+};
+
+function InfoTip({ hint }: { hint: string }) {
+  return (
+    <span className="relative group cursor-help ml-1 inline-flex">
+      <span className="text-[9px] text-white/20 hover:text-white/40 transition-colors">ⓘ</span>
+      <span className="absolute top-full left-0 mt-1.5 px-2.5 py-1.5
+                       text-[10px] text-white/70 bg-[#1a1a2e] border border-border/50
+                       rounded-md shadow-xl whitespace-normal w-52 leading-relaxed
+                       opacity-0 group-hover:opacity-100 pointer-events-none
+                       transition-opacity duration-150 z-[100]">
+        {hint}
+      </span>
+    </span>
+  );
+}
+
 export function PerformancePanel({ connected, selectedTab }: PerformancePanelProps) {
   const [metrics, setMetrics] = useState<PerfMetrics | null>(null);
   const [vitals, setVitals] = useState<WebVitals | null>(null);
@@ -175,7 +209,7 @@ export function PerformancePanel({ connected, selectedTab }: PerformancePanelPro
               return (
                 <div key={key} className="bg-surface-1 rounded-lg border border-border/40 p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-white/30 uppercase tracking-wider">{labels[key]}</span>
+                    <span className="text-[10px] text-white/30 uppercase tracking-wider">{labels[key]}<InfoTip hint={HINTS[key]} /></span>
                     {vitals && val > 0 && (key === 'fcp' || key === 'lcp' || key === 'cls' || key === 'ttfb') && (
                       <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${
                         vitalBadge(key, val) === 'Good' ? 'bg-emerald-400/10 text-emerald-400' :
@@ -204,7 +238,7 @@ export function PerformancePanel({ connected, selectedTab }: PerformancePanelPro
               {/* JS Heap bar */}
               <div className="bg-surface-1 rounded-lg border border-border/40 p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] text-white/30 uppercase tracking-wider">JS Heap</span>
+                  <span className="text-[10px] text-white/30 uppercase tracking-wider">JS Heap<InfoTip hint={HINTS.jsHeap} /></span>
                   <span className="text-[10px] text-white/40 font-mono">
                     {formatBytes(metrics.jsHeapUsedSize)} / {formatBytes(metrics.jsHeapTotalSize)}
                   </span>
@@ -222,13 +256,13 @@ export function PerformancePanel({ connected, selectedTab }: PerformancePanelPro
               {/* DOM stats grid */}
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: 'DOM Nodes', value: Math.round(metrics.nodes) },
-                  { label: 'Listeners', value: Math.round(metrics.jsEventListeners) },
-                  { label: 'Documents', value: Math.round(metrics.documents) },
-                  { label: 'Frames', value: Math.round(metrics.frames) },
+                  { label: 'DOM Nodes', value: Math.round(metrics.nodes), hint: HINTS.nodes },
+                  { label: 'Listeners', value: Math.round(metrics.jsEventListeners), hint: HINTS.listeners },
+                  { label: 'Documents', value: Math.round(metrics.documents), hint: HINTS.documents },
+                  { label: 'Frames', value: Math.round(metrics.frames), hint: HINTS.frames },
                 ].map((item) => (
                   <div key={item.label} className="bg-surface-1 rounded-lg border border-border/40 p-3 text-center">
-                    <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">{item.label}</div>
+                    <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">{item.label}<InfoTip hint={item.hint} /></div>
                     <div className="text-base font-mono font-semibold text-white/60">{item.value.toLocaleString()}</div>
                   </div>
                 ))}
@@ -246,13 +280,13 @@ export function PerformancePanel({ connected, selectedTab }: PerformancePanelPro
           {metrics ? (
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: 'Layouts', count: Math.round(metrics.layoutCount), duration: metrics.layoutDuration },
-                { label: 'Style Recalcs', count: Math.round(metrics.recalcStyleCount), duration: metrics.recalcStyleDuration },
-                { label: 'Script Execution', count: null, duration: metrics.scriptDuration },
-                { label: 'Total Task Time', count: null, duration: metrics.taskDuration },
+                { label: 'Layouts', count: Math.round(metrics.layoutCount), duration: metrics.layoutDuration, hint: HINTS.layouts },
+                { label: 'Style Recalcs', count: Math.round(metrics.recalcStyleCount), duration: metrics.recalcStyleDuration, hint: HINTS.styleRecalcs },
+                { label: 'Script Execution', count: null, duration: metrics.scriptDuration, hint: HINTS.scriptExecution },
+                { label: 'Total Task Time', count: null, duration: metrics.taskDuration, hint: HINTS.taskDuration },
               ].map((item) => (
                 <div key={item.label} className="bg-surface-1 rounded-lg border border-border/40 p-3">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">{item.label}</div>
+                  <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">{item.label}<InfoTip hint={item.hint} /></div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-base font-mono font-semibold text-white/60">
                       {formatDuration(item.duration)}
